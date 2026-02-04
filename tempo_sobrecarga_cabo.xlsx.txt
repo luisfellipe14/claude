@@ -1,0 +1,87 @@
+================================================================================
+        CÁLCULO DO TEMPO DE SOBRECARGA DO CABO - EQUAÇÃO 4.67
+================================================================================
+
+MONTE A PLANILHA NO EXCEL CONFORME ABAIXO:
+
+--------------------------------------------------------------------------------
+CÉLULA  |  CONTEÚDO                           |  DESCRIÇÃO
+--------------------------------------------------------------------------------
+
+=== PARÂMETROS DE ENTRADA ===
+
+A1:     PARÂMETROS DE ENTRADA
+A2:     S_ter (mm²)                           Seção do cabo
+B2:     50                                    (valor exemplo)
+
+A3:     I_cc (kA)                             Corrente de curto-circuito
+B3:     10                                    (valor exemplo)
+
+A4:     T_max (°C)                            Temperatura máxima
+B4:     160                                   (cobre: 160°C / alumínio: 120°C)
+
+A5:     T_i (°C)                              Temperatura inicial
+B5:     70                                    (valor exemplo)
+
+=== PROPRIEDADES DO MATERIAL (COBRE) ===
+
+A7:     PROPRIEDADES - COBRE
+A8:     E                                     Constante do material
+B8:     234.5
+
+A9:     ρd (Ω·m)                              Resistividade a 20°C
+B9:     1.7241E-08
+
+A10:    α20 (1/°C)                            Coeficiente de temperatura
+B10:    0.00393
+
+A11:    ρc (J/m³·°C)                          Calor específico volumétrico
+B11:    3450000
+
+=== CÁLCULO DO TEMPO ===
+
+A13:    RESULTADO
+A14:    T (segundos)
+B14:    (FÓRMULA ABAIXO)
+
+--------------------------------------------------------------------------------
+FÓRMULA PARA CÉLULA B14:
+--------------------------------------------------------------------------------
+
+=(B2^2*4.184*(B8*B9)/(B10*B11)*LN(1+B10*(B4-B5)))/(1000000*B3^2)
+
+--------------------------------------------------------------------------------
+FÓRMULA SIMPLIFICADA (K do cobre ≈ 142):
+--------------------------------------------------------------------------------
+
+Se preferir usar a constante K simplificada para cobre:
+
+=(B2/B3)^2/(142^2)
+
+Onde K = 142 para cobre com isolação PVC (T_max=160°C, T_i=70°C)
+      K = 115 para alumínio com isolação PVC
+
+--------------------------------------------------------------------------------
+VALORES DE REFERÊNCIA PARA K:
+--------------------------------------------------------------------------------
+
+Material    | Isolação  | T_max | T_i  | K
+------------|-----------|-------|------|-----
+Cobre       | PVC       | 160°C | 70°C | 142
+Cobre       | EPR/XLPE  | 250°C | 90°C | 176
+Alumínio    | PVC       | 160°C | 70°C | 93
+Alumínio    | EPR/XLPE  | 250°C | 90°C | 116
+
+================================================================================
+EQUAÇÃO ORIGINAL (4.67):
+
+         1000 × √T × I_cc
+S_ter = ────────────────────────────────────────────────────────
+        √(4,184 × (E×ρd)/(α20×ρc) × ln[1 + α20 × (T_max - T_i)])
+
+EQUAÇÃO ISOLANDO T:
+
+        S_ter² × 4,184 × (E×ρd)/(α20×ρc) × ln[1 + α20 × (T_max - T_i)]
+T = ──────────────────────────────────────────────────────────────────────
+                              1.000.000 × I_cc²
+================================================================================

@@ -1,0 +1,27 @@
+CÁLCULO DO TEMPO DE SOBRECARGA DO CABO - EQUAÇÃO 4.67
+,
+PARÂMETROS DE ENTRADA,VALOR,UNIDADE,DESCRIÇÃO
+S_ter,50,mm²,Seção do cabo
+I_cc,10,kA,Corrente de curto-circuito trifásica simétrica (valor eficaz)
+T_max,160,°C,Temperatura máxima admissível do condutor
+T_i,70,°C,Temperatura inicial do condutor
+,
+PROPRIEDADES DO MATERIAL (COBRE),VALOR,UNIDADE,DESCRIÇÃO
+E,234.5,,Constante do material (cobre = 234.5)
+rho_d,1.7241E-08,Ω·m,Resistividade do condutor a 20°C
+alpha_20,0.00393,1/°C,Coeficiente de temperatura a 20°C
+rho_c,3.45E+06,J/(m³·°C),Calor específico volumétrico
+,
+PROPRIEDADES DO MATERIAL (ALUMÍNIO),VALOR,UNIDADE,DESCRIÇÃO
+E_Al,228,,Constante do material (alumínio = 228)
+rho_d_Al,2.8264E-08,Ω·m,Resistividade do condutor a 20°C
+alpha_20_Al,0.00403,1/°C,Coeficiente de temperatura a 20°C
+rho_c_Al,2.43E+06,J/(m³·°C),Calor específico volumétrico
+,
+CÁLCULOS INTERMEDIÁRIOS,FÓRMULA EXCEL,
+Delta_T,"=B5-B6",°C
+Termo_ln,"=LN(1+B11*(B5-B6))",
+Fator_K,"=4.184*(B9*B10)/(B11*B12)*C16",
+,
+RESULTADO,FÓRMULA EXCEL,UNIDADE
+T (tempo de sobrecarga),"=(B4^2*C17)/(1000000*B5^2)",segundos
