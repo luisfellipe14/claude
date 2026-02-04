@@ -1,5 +1,5 @@
 ================================================================================
-        CÁLCULO DO TEMPO DE SOBRECARGA DO CABO - EQUAÇÃO 4.67
+        CÁLCULO DO TEMPO DE SOBRECARGA DO CABO - EQUAÇÃO 4.67 (COBRE)
 ================================================================================
 
 MONTE A PLANILHA NO EXCEL CONFORME ABAIXO:
@@ -10,7 +10,6 @@ CÉLULA  |  CONTEÚDO                           |  DESCRIÇÃO
 
 === PARÂMETROS DE ENTRADA ===
 
-A1:     PARÂMETROS DE ENTRADA
 A2:     S_ter (mm²)                           Seção do cabo
 B2:     50                                    (valor exemplo)
 
@@ -18,70 +17,76 @@ A3:     I_cc (kA)                             Corrente de curto-circuito
 B3:     10                                    (valor exemplo)
 
 A4:     T_max (°C)                            Temperatura máxima
-B4:     160                                   (cobre: 160°C / alumínio: 120°C)
+B4:     200                                   (cobre: 200°C)
 
-A5:     T_i (°C)                              Temperatura inicial
+A5:     T_i (°C)                              Temperatura inicial antes do defeito
 B5:     70                                    (valor exemplo)
 
-=== PROPRIEDADES DO MATERIAL (COBRE) ===
+=== CONSTANTES DO COBRE ===
 
-A7:     PROPRIEDADES - COBRE
-A8:     E                                     Constante do material
-B8:     234.5
+A7:     E (cal/g·°C)                          Calor específico
+B7:     0,0925
 
-A9:     ρd (Ω·m)                              Resistividade a 20°C
-B9:     1.7241E-08
+A8:     ρd (g/cm³)                            Densidade do material
+B8:     8,9
 
-A10:    α20 (1/°C)                            Coeficiente de temperatura
-B10:    0.00393
+A9:     ρ20 (Ω·mm²/m)                         Resistividade a 20°C
+B9:     0,0178
 
-A11:    ρc (J/m³·°C)                          Calor específico volumétrico
-B11:    3450000
+A10:    α20 (1/°C)                            Coeficiente de variação da resistência
+B10:    0,00393
 
-=== CÁLCULO DO TEMPO ===
+=== CÁLCULOS INTERMEDIÁRIOS ===
 
-A13:    RESULTADO
-A14:    T (segundos)
-B14:    (FÓRMULA ABAIXO)
+A12:    ρc (Ω·mm²/m)                          Resistividade à temperatura Ti
+B12:    =B9*(1+B10*(B5-20))
 
---------------------------------------------------------------------------------
-FÓRMULA PARA CÉLULA B14:
---------------------------------------------------------------------------------
+A13:    Termo ln
+B13:    =LN(1+B10*(B4-B5))
 
-=(B2^2*4.184*(B8*B9)/(B10*B11)*LN(1+B10*(B4-B5)))/(1000000*B3^2)
+A14:    Fator K
+B14:    =4,184*(B7*B8)/(B10*B12)
 
---------------------------------------------------------------------------------
-FÓRMULA SIMPLIFICADA (K do cobre ≈ 142):
---------------------------------------------------------------------------------
+=== RESULTADO ===
 
-Se preferir usar a constante K simplificada para cobre:
-
-=(B2/B3)^2/(142^2)
-
-Onde K = 142 para cobre com isolação PVC (T_max=160°C, T_i=70°C)
-      K = 115 para alumínio com isolação PVC
+A16:    T (segundos)                          Tempo de sobrecarga
+B16:    =(B2^2*B14*B13)/(1000000*B3^2)
 
 --------------------------------------------------------------------------------
-VALORES DE REFERÊNCIA PARA K:
+FÓRMULA COMPLETA PARA CÉLULA B16 (SEM INTERMEDIÁRIOS):
 --------------------------------------------------------------------------------
 
-Material    | Isolação  | T_max | T_i  | K
-------------|-----------|-------|------|-----
-Cobre       | PVC       | 160°C | 70°C | 142
-Cobre       | EPR/XLPE  | 250°C | 90°C | 176
-Alumínio    | PVC       | 160°C | 70°C | 93
-Alumínio    | EPR/XLPE  | 250°C | 90°C | 116
+=(B2^2*4,184*(B7*B8)/(B10*(B9*(1+B10*(B5-20))))*LN(1+B10*(B4-B5)))/(1000000*B3^2)
 
 ================================================================================
-EQUAÇÃO ORIGINAL (4.67):
+CONSTANTES DO MATERIAL:
+================================================================================
 
-         1000 × √T × I_cc
-S_ter = ────────────────────────────────────────────────────────
+                        |  COBRE          |  ALUMÍNIO
+------------------------|-----------------|------------------
+E (cal/g·°C)            |  0,0925         |  0,217
+ρd (g/cm³)              |  8,9            |  2,7
+ρ20 (Ω·mm²/m)           |  0,0178         |  0,0286
+α20 (1/°C)              |  0,00393        |  0,00403
+T_max (°C)              |  200            |  200
+
+================================================================================
+EQUAÇÕES:
+================================================================================
+
+Resistividade à temperatura Ti:
+    ρc = ρ20 × [1 + α20 × (θi - 20)]
+
+Equação 4.67 original:
+
+              1000 × √T × I_cc
+S_ter = ─────────────────────────────────────────────────────
         √(4,184 × (E×ρd)/(α20×ρc) × ln[1 + α20 × (T_max - T_i)])
 
-EQUAÇÃO ISOLANDO T:
+Equação isolando T (tempo de sobrecarga):
 
         S_ter² × 4,184 × (E×ρd)/(α20×ρc) × ln[1 + α20 × (T_max - T_i)]
 T = ──────────────────────────────────────────────────────────────────────
                               1.000.000 × I_cc²
+
 ================================================================================
