@@ -281,6 +281,83 @@
             gap: 0.75rem;
         }
 
+        /* === Settings Panel === */
+        .settings-toggle {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.35rem 0.75rem;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .settings-toggle:hover { background: rgba(255,255,255,0.3); }
+
+        .header-row { display: flex; justify-content: space-between; align-items: center; }
+
+        .settings-panel {
+            display: none;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .settings-panel.active { display: block; }
+        .settings-panel h3 { font-size: 0.95rem; margin-bottom: 1rem; color: var(--text); }
+
+        .settings-section { margin-bottom: 1.25rem; }
+        .settings-section:last-child { margin-bottom: 0; }
+        .settings-section h4 { font-size: 0.82rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
+
+        .settings-row { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
+        .settings-row .form-group { flex: 1; min-width: 200px; margin-bottom: 0; }
+
+        .settings-hint { font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem; }
+
+        .toggle-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+        .toggle-row label { font-size: 0.85rem; cursor: pointer; }
+
+        /* === Toast === */
+        .toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            background: var(--text);
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: var(--radius);
+            font-size: 0.85rem;
+            box-shadow: var(--shadow-md);
+            animation: toastIn 0.3s ease, toastOut 0.3s ease 3.5s forwards;
+            max-width: 350px;
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--info); }
+
+        @keyframes toastIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+        /* === Email button === */
+        .btn-teams { background: #6264a7; color: white; }
+        .btn-teams:hover { background: #525499; }
+        .btn-email { background: #0078d4; color: white; }
+        .btn-email:hover { background: #006cbe; }
+
         /* === Responsive === */
         @media (max-width: 768px) {
             .container { padding: 1rem; }
@@ -289,16 +366,68 @@
             .toolbar input[type="search"] { min-width: auto; width: 100%; }
             .form-row { grid-template-columns: 1fr; }
             header { padding: 1rem; }
+            .settings-row { flex-direction: column; }
+            .settings-row .form-group { min-width: auto; }
         }
     </style>
 </head>
 <body>
+    <div class="toast-container" id="toast-container"></div>
+
     <header>
-        <h1>Planejador de Tarefas</h1>
-        <p>Organize e acompanhe suas demandas de trabalho</p>
+        <div class="header-row">
+            <div>
+                <h1>Planejador de Tarefas</h1>
+                <p>Organize e acompanhe suas demandas de trabalho</p>
+            </div>
+            <button class="settings-toggle" onclick="toggleSettings()">Configuracoes</button>
+        </div>
     </header>
 
     <div class="container">
+        <!-- Settings Panel -->
+        <div class="settings-panel" id="settings-panel">
+            <h3>Integracoes Microsoft</h3>
+
+            <div class="settings-section">
+                <h4>Microsoft Teams - Webhook</h4>
+                <p class="settings-hint" style="margin-bottom:0.5rem">Cole a URL do Incoming Webhook do canal do Teams para receber notificacoes automaticas.</p>
+                <div class="settings-row">
+                    <div class="form-group">
+                        <label for="s-teams-webhook">URL do Webhook</label>
+                        <input type="url" id="s-teams-webhook" placeholder="https://outlook.office.com/webhook/...">
+                    </div>
+                    <button class="btn btn-teams btn-sm" onclick="testTeamsWebhook()">Testar</button>
+                    <button class="btn btn-primary btn-sm" onclick="saveSettings()">Salvar</button>
+                </div>
+                <div class="toggle-row">
+                    <input type="checkbox" id="s-teams-on-create" checked>
+                    <label for="s-teams-on-create">Notificar ao criar tarefa</label>
+                </div>
+                <div class="toggle-row">
+                    <input type="checkbox" id="s-teams-on-complete" checked>
+                    <label for="s-teams-on-complete">Notificar ao concluir tarefa</label>
+                </div>
+                <div class="toggle-row">
+                    <input type="checkbox" id="s-teams-on-overdue" checked>
+                    <label for="s-teams-on-overdue">Notificar tarefas atrasadas</label>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h4>Outlook - E-mail</h4>
+                <p class="settings-hint" style="margin-bottom:0.5rem">Defina os destinatarios padrao para envio de tarefas por e-mail.</p>
+                <div class="settings-row">
+                    <div class="form-group">
+                        <label for="s-email-to">Destinatario(s) padrao</label>
+                        <input type="text" id="s-email-to" placeholder="equipe@empresa.com; gestor@empresa.com">
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="saveSettings()">Salvar</button>
+                </div>
+                <p class="settings-hint">Separe multiplos e-mails com ponto e virgula (;).</p>
+            </div>
+        </div>
+
         <!-- Dashboard -->
         <div class="dashboard" id="dashboard">
             <div class="dash-card total" onclick="filterByDash('todos')">
@@ -354,6 +483,8 @@
                 <option value="prioridade-asc">Prioridade (alta primeiro)</option>
             </select>
             <button class="btn btn-outline" onclick="exportCSV()">Exportar CSV</button>
+            <button class="btn btn-teams btn-sm" onclick="sendTeamsSummary()">Resumo Teams</button>
+            <button class="btn btn-email btn-sm" onclick="sendEmailSummary()">Resumo E-mail</button>
             <button class="btn btn-primary" onclick="openModal()">+ Nova Tarefa</button>
         </div>
 
@@ -434,7 +565,229 @@
     <script>
     // === Constants ===
     const STORAGE_KEY = 'taskPlannerData';
+    const SETTINGS_KEY = 'taskPlannerSettings';
     const PRIORITY_WEIGHT = { 'Alta': 1, 'Média': 2, 'Baixa': 3 };
+
+    // === Settings Manager ===
+    function loadSettings() {
+        try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
+    }
+
+    function saveSettings() {
+        const settings = {
+            teamsWebhook: document.getElementById('s-teams-webhook').value.trim(),
+            teamsOnCreate: document.getElementById('s-teams-on-create').checked,
+            teamsOnComplete: document.getElementById('s-teams-on-complete').checked,
+            teamsOnOverdue: document.getElementById('s-teams-on-overdue').checked,
+            emailTo: document.getElementById('s-email-to').value.trim()
+        };
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        showToast('Configuracoes salvas!', 'success');
+    }
+
+    function restoreSettings() {
+        const s = loadSettings();
+        document.getElementById('s-teams-webhook').value = s.teamsWebhook || '';
+        document.getElementById('s-teams-on-create').checked = s.teamsOnCreate !== false;
+        document.getElementById('s-teams-on-complete').checked = s.teamsOnComplete !== false;
+        document.getElementById('s-teams-on-overdue').checked = s.teamsOnOverdue !== false;
+        document.getElementById('s-email-to').value = s.emailTo || '';
+    }
+
+    function toggleSettings() {
+        document.getElementById('settings-panel').classList.toggle('active');
+    }
+
+    // === Toast Notifications ===
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    // === Teams Integration ===
+    function buildTeamsCard(title, facts, color = '0078D7') {
+        return {
+            "@type": "MessageCard",
+            "@context": "https://schema.org/extensions",
+            "themeColor": color,
+            "summary": title,
+            "sections": [{
+                "activityTitle": title,
+                "facts": facts,
+                "markdown": true
+            }]
+        };
+    }
+
+    async function sendToTeams(payload) {
+        const settings = loadSettings();
+        if (!settings.teamsWebhook) {
+            showToast('Configure a URL do Webhook do Teams nas configuracoes.', 'error');
+            return false;
+        }
+        try {
+            const res = await fetch(settings.teamsWebhook, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok || res.status === 200 || res.status === 202) {
+                showToast('Notificacao enviada ao Teams!', 'success');
+                return true;
+            }
+            showToast(`Erro ao enviar ao Teams: ${res.status}`, 'error');
+            return false;
+        } catch (e) {
+            showToast('Falha na conexao com o Teams. Verifique a URL do webhook.', 'error');
+            return false;
+        }
+    }
+
+    function taskToFacts(t) {
+        const facts = [
+            { name: 'Status', value: t.status },
+            { name: 'Prioridade', value: t.prioridade }
+        ];
+        if (t.responsavel) facts.push({ name: 'Responsavel', value: t.responsavel });
+        if (t.categoria) facts.push({ name: 'Categoria', value: t.categoria });
+        if (t.dataVencimento) facts.push({ name: 'Vencimento', value: formatDate(t.dataVencimento) });
+        if (t.dataConclusao) facts.push({ name: 'Conclusao', value: formatDate(t.dataConclusao) });
+        if (t.descricao) facts.push({ name: 'Descricao', value: t.descricao.substring(0, 200) });
+        return facts;
+    }
+
+    const TEAMS_COLORS = { create: '0078D7', complete: '00A300', overdue: 'D83B01' };
+
+    function notifyTeamsTaskCreated(task) {
+        const settings = loadSettings();
+        if (!settings.teamsWebhook || !settings.teamsOnCreate) return;
+        const card = buildTeamsCard(`Nova tarefa: ${task.titulo}`, taskToFacts(task), TEAMS_COLORS.create);
+        sendToTeams(card);
+    }
+
+    function notifyTeamsTaskCompleted(task) {
+        const settings = loadSettings();
+        if (!settings.teamsWebhook || !settings.teamsOnComplete) return;
+        const card = buildTeamsCard(`Tarefa concluida: ${task.titulo}`, taskToFacts(task), TEAMS_COLORS.complete);
+        sendToTeams(card);
+    }
+
+    async function testTeamsWebhook() {
+        const url = document.getElementById('s-teams-webhook').value.trim();
+        if (!url) { showToast('Insira a URL do webhook primeiro.', 'error'); return; }
+        const tempSettings = loadSettings();
+        tempSettings.teamsWebhook = url;
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(tempSettings));
+        const card = buildTeamsCard('Teste - Planejador de Tarefas', [
+            { name: 'Status', value: 'Webhook configurado com sucesso!' },
+            { name: 'Hora', value: new Date().toLocaleString('pt-BR') }
+        ], '6264A7');
+        await sendToTeams(card);
+    }
+
+    function sendTaskToTeams(id) {
+        const t = tm.tasks.find(t => t.id === id);
+        if (!t) return;
+        const card = buildTeamsCard(`Tarefa: ${t.titulo}`, taskToFacts(t), TEAMS_COLORS.create);
+        sendToTeams(card);
+    }
+
+    async function sendTeamsSummary() {
+        const settings = loadSettings();
+        if (!settings.teamsWebhook) {
+            showToast('Configure a URL do Webhook do Teams nas configuracoes.', 'error');
+            return;
+        }
+        const s = tm.getSummary();
+        const today = new Date().toISOString().split('T')[0];
+        const overdueTasks = tm.tasks.filter(t =>
+            t.dataVencimento && t.dataVencimento < today && t.status !== 'Concluído' && t.status !== 'Cancelado'
+        );
+
+        const facts = [
+            { name: 'Total', value: String(s.total) },
+            { name: 'Pendentes', value: String(s.pendente) },
+            { name: 'Em Andamento', value: String(s.andamento) },
+            { name: 'Concluidas', value: String(s.concluido) },
+            { name: 'Atrasadas', value: String(s.atrasado) }
+        ];
+
+        if (overdueTasks.length > 0) {
+            const overdueList = overdueTasks.map(t => `- ${t.titulo} (venc. ${formatDate(t.dataVencimento)})`).join('\\n');
+            facts.push({ name: 'Detalhes Atrasadas', value: overdueList });
+        }
+
+        const card = buildTeamsCard(`Resumo de Tarefas - ${formatDate(today)}`, facts, s.atrasado > 0 ? TEAMS_COLORS.overdue : TEAMS_COLORS.create);
+        await sendToTeams(card);
+    }
+
+    // === Outlook/Email Integration ===
+    function buildTaskEmailBody(t) {
+        let body = `TAREFA: ${t.titulo}\n\n`;
+        body += `Status: ${t.status}\n`;
+        body += `Prioridade: ${t.prioridade}\n`;
+        if (t.responsavel) body += `Responsavel: ${t.responsavel}\n`;
+        if (t.categoria) body += `Categoria: ${t.categoria}\n`;
+        if (t.dataInicio) body += `Data de Inicio: ${formatDate(t.dataInicio)}\n`;
+        if (t.dataVencimento) body += `Data de Vencimento: ${formatDate(t.dataVencimento)}\n`;
+        if (t.dataConclusao) body += `Data de Conclusao: ${formatDate(t.dataConclusao)}\n`;
+        if (t.descricao) body += `\nDescricao:\n${t.descricao}\n`;
+        return body;
+    }
+
+    function sendTaskEmail(id) {
+        const t = tm.tasks.find(t => t.id === id);
+        if (!t) return;
+        const settings = loadSettings();
+        const to = (settings.emailTo || '').replace(/;/g, ',');
+        const subject = `[Tarefa] ${t.titulo} - ${t.status}`;
+        const body = buildTaskEmailBody(t);
+        window.open(`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
+    }
+
+    function sendEmailSummary() {
+        const settings = loadSettings();
+        const to = (settings.emailTo || '').replace(/;/g, ',');
+        const s = tm.getSummary();
+        const today = new Date().toISOString().split('T')[0];
+
+        let subject = `Resumo de Tarefas - ${formatDate(today)}`;
+        let body = `RESUMO DE TAREFAS - ${formatDate(today)}\n`;
+        body += `${'='.repeat(40)}\n\n`;
+        body += `Total: ${s.total}\n`;
+        body += `Pendentes: ${s.pendente}\n`;
+        body += `Em Andamento: ${s.andamento}\n`;
+        body += `Concluidas: ${s.concluido}\n`;
+        body += `Canceladas: ${s.cancelado}\n`;
+        body += `Atrasadas: ${s.atrasado}\n`;
+
+        const overdueTasks = tm.tasks.filter(t =>
+            t.dataVencimento && t.dataVencimento < today && t.status !== 'Concluído' && t.status !== 'Cancelado'
+        );
+        if (overdueTasks.length > 0) {
+            body += `\n${'='.repeat(40)}\nTAREFAS ATRASADAS:\n\n`;
+            overdueTasks.forEach(t => {
+                body += `- ${t.titulo} (resp: ${t.responsavel || 'N/A'}, venc: ${formatDate(t.dataVencimento)})\n`;
+            });
+        }
+
+        const pending = tm.tasks.filter(t => t.status === 'Pendente' || t.status === 'Em Andamento');
+        if (pending.length > 0) {
+            body += `\n${'='.repeat(40)}\nTAREFAS EM ABERTO:\n\n`;
+            pending.forEach(t => {
+                body += `- [${t.status}] ${t.titulo}`;
+                if (t.responsavel) body += ` (${t.responsavel})`;
+                if (t.dataVencimento) body += ` - venc: ${formatDate(t.dataVencimento)}`;
+                body += '\n';
+            });
+        }
+
+        window.open(`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
+    }
 
     // === TaskManager ===
     class TaskManager {
@@ -624,6 +977,8 @@
                     ${t.status === 'Pendente' ? `<button class="btn btn-sm btn-outline" onclick="changeStatus('${t.id}','Em Andamento')">Iniciar</button>` : ''}
                     ${t.status === 'Em Andamento' ? `<button class="btn btn-sm btn-outline" onclick="changeStatus('${t.id}','Concluído')">Concluir</button>` : ''}
                     <button class="btn btn-sm btn-outline" onclick="openModal('${t.id}')">Editar</button>
+                    <button class="btn btn-sm btn-email" onclick="sendTaskEmail('${t.id}')">E-mail</button>
+                    <button class="btn btn-sm btn-teams" onclick="sendTaskToTeams('${t.id}')">Teams</button>
                     <button class="btn btn-sm btn-danger" onclick="deleteTask('${t.id}')">Excluir</button>
                 </div>
             </div>`;
@@ -704,9 +1059,15 @@
         if (!data.titulo) return;
 
         if (editingId) {
+            const oldTask = tm.tasks.find(t => t.id === editingId);
+            const wasNotComplete = oldTask && oldTask.status !== 'Concluído';
             tm.updateTask(editingId, data);
+            if (data.status === 'Concluído' && wasNotComplete) {
+                notifyTeamsTaskCompleted({ ...oldTask, ...data });
+            }
         } else {
-            tm.addTask(data);
+            const task = tm.addTask(data);
+            notifyTeamsTaskCreated(task);
         }
 
         closeModal();
@@ -721,7 +1082,11 @@
     }
 
     function changeStatus(id, newStatus) {
+        const task = tm.tasks.find(t => t.id === id);
         tm.updateTask(id, { status: newStatus });
+        if (newStatus === 'Concluído' && task) {
+            notifyTeamsTaskCompleted({ ...task, status: newStatus });
+        }
         renderAll();
     }
 
@@ -787,6 +1152,7 @@
     });
 
     // === Init ===
+    restoreSettings();
     renderAll();
     </script>
 </body>
