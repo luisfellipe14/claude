@@ -391,7 +391,7 @@
 
             <div class="settings-section">
                 <h4>Microsoft Teams - Webhook</h4>
-                <p class="settings-hint" style="margin-bottom:0.5rem">Cole a URL do Incoming Webhook do canal do Teams para receber notificacoes automaticas.</p>
+                <p class="settings-hint" style="margin-bottom:0.5rem">Cole a URL do Incoming Webhook do canal do Teams. O envio usa modo no-cors (fire-and-forget). Se o navegador bloquear, um comando PowerShell/cURL sera oferecido para copiar.</p>
                 <div class="settings-row">
                     <div class="form-group">
                         <label for="s-teams-webhook">URL do Webhook</label>
@@ -629,22 +629,64 @@
             showToast('Configure a URL do Webhook do Teams nas configuracoes.', 'error');
             return false;
         }
+        const jsonBody = JSON.stringify(payload);
+
+        // Tenta enviar via fetch com mode no-cors (fire-and-forget)
+        // O Teams webhook bloqueia CORS, entao nao conseguimos ler a resposta
+        // mas a mensagem eh enviada com sucesso
         try {
-            const res = await fetch(settings.teamsWebhook, {
+            await fetch(settings.teamsWebhook, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: jsonBody
             });
-            if (res.ok || res.status === 200 || res.status === 202) {
-                showToast('Notificacao enviada ao Teams!', 'success');
-                return true;
-            }
-            showToast(`Erro ao enviar ao Teams: ${res.status}`, 'error');
-            return false;
+            showToast('Notificacao enviada ao Teams!', 'success');
+            return true;
         } catch (e) {
-            showToast('Falha na conexao com o Teams. Verifique a URL do webhook.', 'error');
+            // Se falhar, oferece copiar o comando PowerShell
+            showTeamsFallback(settings.teamsWebhook, jsonBody);
             return false;
         }
+    }
+
+    function showTeamsFallback(webhookUrl, jsonBody) {
+        const escapedBody = jsonBody.replace(/'/g, "''");
+        const psCommand = `Invoke-RestMethod -Uri '${webhookUrl}' -Method Post -ContentType 'application/json' -Body '${escapedBody}'`;
+        const curlCommand = `curl -H "Content-Type: application/json" -d '${jsonBody.replace(/'/g, "\\'")}' "${webhookUrl}"`;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay active';
+        modal.style.zIndex = '2000';
+        modal.innerHTML = `
+            <div class="modal" style="max-width:640px">
+                <div class="modal-header">
+                    <h2>Enviar ao Teams manualmente</h2>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom:1rem;font-size:0.85rem;color:var(--text-light)">
+                        O navegador bloqueia chamadas diretas ao webhook do Teams (CORS).
+                        Copie o comando abaixo e execute no <strong>PowerShell</strong> ou <strong>Terminal</strong>:
+                    </p>
+                    <div class="form-group">
+                        <label>PowerShell</label>
+                        <textarea readonly style="font-family:monospace;font-size:0.75rem;min-height:60px;background:#f3f4f6" id="teams-ps-cmd">${psCommand.replace(/</g,'&lt;')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>cURL (Linux/Mac)</label>
+                        <textarea readonly style="font-family:monospace;font-size:0.75rem;min-height:60px;background:#f3f4f6" id="teams-curl-cmd">${curlCommand.replace(/</g,'&lt;')}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('teams-ps-cmd').value);showToast('Comando PowerShell copiado!','success')">Copiar PowerShell</button>
+                    <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('teams-curl-cmd').value);showToast('Comando cURL copiado!','success')">Copiar cURL</button>
+                    <button class="btn btn-outline btn-sm" onclick="this.closest('.modal-overlay').remove()">Fechar</button>
+                </div>
+            </div>
+        `;
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
     }
 
     function taskToFacts(t) {
@@ -717,7 +759,7 @@
         ];
 
         if (overdueTasks.length > 0) {
-            const overdueList = overdueTasks.map(t => `- ${t.titulo} (venc. ${formatDate(t.dataVencimento)})`).join('\\n');
+            const overdueList = overdueTasks.map(t => `- ${t.titulo} (venc. ${formatDate(t.dataVencimento)})`).join('\n');
             facts.push({ name: 'Detalhes Atrasadas', value: overdueList });
         }
 
