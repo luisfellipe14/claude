@@ -4,7 +4,7 @@ const { useState: useS, useEffect: useE, useMemo: useM } = React;
 const STORAGE_KEY = 'planner_at_v1';
 const THEME_KEY = 'planner_at_theme';
 
-const migrate = (t) => ({ subtasks: [], comments: [], ...t });
+const migrate = (t) => ({ subtasks: [], comments: [], deps: [], ...t });
 
 const loadTasks = () => {
   try {
@@ -29,7 +29,8 @@ const newBlankTask = (status = 'todo') => {
     tags: [],
     recurrent: null,
     subtasks: [],
-    comments: []
+    comments: [],
+    deps: [],
   };
 };
 
@@ -52,10 +53,19 @@ const App = () => {
   const [showSync, setShowSync] = useS(false);
   const [showSettings, setShowSettings] = useS(false);
   const [showHotkeys, setShowHotkeys] = useS(false);
+  const [showAudit, setShowAudit] = useS(false);
+  const [pwaPrompt, setPwaPrompt] = useS(null);
   const [, forceTick] = useS(0);
   const searchRef = React.useRef(null);
 
   useAutoFileSync(tasks);
+
+  // PWA install prompt
+  useE(() => {
+    const handler = (e) => { e.preventDefault(); setPwaPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
 
   useE(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
@@ -103,19 +113,29 @@ const App = () => {
     const prev = tasks.find(t => t.id === id);
     setTasks(tasks.map((t) => t.id === id ? { ...t, status: newStatus, progress: newStatus === 'done' ? 100 : t.progress } : t));
     const statusLabel = STATUSES.find(s => s.id === newStatus)?.label || newStatus;
+    const prevLabel = STATUSES.find(s => s.id === prev?.status)?.label || prev?.status;
+    appendAudit({ action: 'move', taskId: id, taskTitle: prev?.title, detail: `${prevLabel} → ${statusLabel}` });
     toast({ msg: `"${prev?.title || id}" → ${statusLabel}`, kind: 'success' });
   };
+
   const handleSave = (t) => {
     if (isNew) {
       setTasks([...tasks, t]);
       setIsNew(false);setNewDraft(null);
+      appendAudit({ action: 'create', taskId: t.id, taskTitle: t.title, detail: `Projeto: ${PROJECTS.find(p => p.id === t.project)?.label || t.project || '—'}` });
       toast({ msg: `Tarefa ${t.id} criada`, kind: 'success' });
     } else {
+      const prev = tasks.find(x => x.id === t.id);
       setTasks(tasks.map((x) => x.id === t.id ? t : x));
+      const detail = prev?.status !== t.status
+        ? `Status: ${STATUSES.find(s => s.id === prev?.status)?.label} → ${STATUSES.find(s => s.id === t.status)?.label}`
+        : '';
+      appendAudit({ action: 'update', taskId: t.id, taskTitle: t.title, detail });
       toast({ msg: `Tarefa ${t.id} salva`, kind: 'success' });
     }
     setOpenId(null);
   };
+
   const handleDelete = async (id) => {
     const t = tasks.find(x => x.id === id);
     if (!t) return;
@@ -126,6 +146,7 @@ const App = () => {
       confirmLabel: 'Excluir',
     });
     if (!ok) return;
+    appendAudit({ action: 'delete', taskId: id, taskTitle: t.title, detail: `Status: ${STATUSES.find(s => s.id === t.status)?.label || t.status}` });
     setTasks(tasks.filter((x) => x.id !== id));
     setOpenId(null);setIsNew(false);setNewDraft(null);
     toast({
@@ -133,13 +154,17 @@ const App = () => {
       action: { label: 'Desfazer', onClick: () => history.undo() }
     });
   };
+
   const handleNew = (status = 'todo') => {
     const d = newBlankTask(status);
     setNewDraft(d);
     setIsNew(true);
   };
+
   const updateTaskDates = (id, start, due) => {
+    const prev = tasks.find(t => t.id === id);
     setTasks(tasks.map(t => t.id === id ? { ...t, start, due } : t));
+    appendAudit({ action: 'resize', taskId: id, taskTitle: prev?.title, detail: `${start} → ${due}` });
   };
 
   const exportCSV = () => {
@@ -153,7 +178,7 @@ const App = () => {
     t.start, t.due, t.progress + '%', t.tags.join('; ')]
     );
     const csv = [header, ...rows].map((r) => r.map((v) => `"${(v || '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;a.download = `planner-at-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -169,6 +194,7 @@ const App = () => {
     '?': () => setShowHotkeys(true),
     'escape': () => {
       if (showHotkeys) setShowHotkeys(false);
+      else if (showAudit) setShowAudit(false);
       else if (showInteg) setShowInteg(false);
       else if (showSync) setShowSync(false);
       else if (showSettings) setShowSettings(false);
@@ -179,7 +205,7 @@ const App = () => {
     'mod+shift+z': () => { if (history.canRedo) { history.redo(); toast({ msg: 'Refeito', kind: 'info', ttl: 1500 }); } },
     'mod+y': () => { if (history.canRedo) { history.redo(); toast({ msg: 'Refeito', kind: 'info', ttl: 1500 }); } },
     'mod+k': (e) => { e.preventDefault?.(); searchRef.current?.focus(); searchRef.current?.select(); },
-  }, [openId, isNew, showHotkeys, showInteg, showSync, showSettings, history.canUndo, history.canRedo]);
+  }, [openId, isNew, showHotkeys, showAudit, showInteg, showSync, showSettings, history.canUndo, history.canRedo]);
 
   return (
     <div className="app">
@@ -227,6 +253,13 @@ const App = () => {
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>
             </svg>
           </button>
+          <button className="icon-btn" onClick={() => setShowAudit(true)} title="Log de auditoria">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </button>
           <button className="icon-btn" onClick={() => setShowSettings(true)} title="Configurações">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1A1.7 1.7 0 0 0 10 3.2V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1c.2.6.8 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
@@ -237,6 +270,17 @@ const App = () => {
               <path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>
             </svg>
           </button>
+          {pwaPrompt && (
+            <button className="btn" onClick={() => {
+              pwaPrompt.prompt();
+              pwaPrompt.userChoice.then(() => setPwaPrompt(null));
+            }} title="Instalar app">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Instalar
+            </button>
+          )}
           <button className="btn" onClick={exportCSV} title="Exportar CSV">
             <Icon name="export" /> Exportar
           </button>
@@ -276,7 +320,7 @@ const App = () => {
             placeholder="Buscar por título, ID, tag…"
             value={query}
             onChange={(e) => setQuery(e.target.value)} />
-          
+
           <kbd>⌘K</kbd>
         </div>
 
@@ -358,41 +402,40 @@ const App = () => {
           onOpen={(id) => setOpenId(id)}
           onMove={handleMove}
           onNew={(status) => handleNew(status)} />
-
         }
         {view === 'timeline' &&
         <TimelineView
           tasks={filtered}
+          allTasks={tasks}
           onOpen={(id) => setOpenId(id)}
           onUpdateDates={updateTaskDates} />
-
         }
       </div>
 
       {openTask && !isNew &&
       <TaskModal
         task={openTask}
+        allTasks={tasks}
         onClose={() => setOpenId(null)}
         onSave={handleSave}
         onDelete={handleDelete} />
-
       }
       {isNew && newDraft &&
       <TaskModal
         task={newDraft}
+        allTasks={tasks}
         onClose={() => {setIsNew(false);setNewDraft(null);}}
         onSave={handleSave}
         onDelete={() => {setIsNew(false);setNewDraft(null);}} />
-
       }
       {showInteg && <IntegrationModal tasks={tasks} onClose={() => setShowInteg(false)}/>}
       {showSync && <SyncPanel tasks={tasks} onImport={(imported) => setTasks(imported.map(migrate))} onClose={() => setShowSync(false)}/>}
       {showSettings && <SettingsPanel tasks={tasks} onTasksChange={setTasks} onDataChange={() => forceTick(x=>x+1)} onClose={() => setShowSettings(false)}/>}
+      {showAudit && <AuditPanel onClose={() => setShowAudit(false)}/>}
       {showHotkeys && <HotkeysHelp onClose={() => setShowHotkeys(false)} />}
       <ToastHost />
       <DialogHost />
     </div>);
-
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

@@ -1254,3 +1254,19 @@ button { cursor: pointer; border: none; background: transparent; }
   cursor: grab;
 }
 .tl-bar.dragging .tl-bar-body { cursor: grabbing; }
+
+/* ============= DEPENDÊNCIAS NO GANTT ============= */
+.tl-dep-badge {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+/* ============= LOG DE AUDITORIA ============= */
+/* Usa .modal + .modal-overlay existentes — nenhuma classe extra necessária */
+
+/* ============= PWA install button — reutiliza .btn ============= */
