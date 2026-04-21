@@ -116,10 +116,16 @@ const App = () => {
     }
     setOpenId(null);
   };
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const t = tasks.find(x => x.id === id);
     if (!t) return;
-    if (!confirm('Excluir esta tarefa?')) return;
+    const ok = await confirmDialog({
+      title: 'Excluir tarefa',
+      message: `Excluir "${t.title || id}"? Você pode desfazer pelo atalho Ctrl+Z.`,
+      danger: true,
+      confirmLabel: 'Excluir',
+    });
+    if (!ok) return;
     setTasks(tasks.filter((x) => x.id !== id));
     setOpenId(null);setIsNew(false);setNewDraft(null);
     toast({
@@ -384,6 +390,7 @@ const App = () => {
       {showSettings && <SettingsPanel tasks={tasks} onTasksChange={setTasks} onDataChange={() => forceTick(x=>x+1)} onClose={() => setShowSettings(false)}/>}
       {showHotkeys && <HotkeysHelp onClose={() => setShowHotkeys(false)} />}
       <ToastHost />
+      <DialogHost />
     </div>);
 
 };

@@ -196,4 +196,111 @@ const HotkeysHelp = ({ onClose }) => {
   );
 };
 
-Object.assign(window, { useHistory, ToastHost, toast, useHotkeys, HotkeysHelp });
+/* ============= DIALOGS (CONFIRM / PROMPT) ============= */
+// Substitui window.confirm()/prompt() por modais acessíveis não-bloqueantes.
+// API:
+//   await confirmDialog({ title, message, danger, confirmLabel, cancelLabel }) -> boolean
+//   await promptDialog({ title, message, options, placeholder, emptyLabel })   -> string | null
+// Se cfg for string, é tratada como message.
+// options: [{ value, label }] — quando presente, renderiza <select>; senão <input type=text>.
+
+const DialogHost = () => {
+  const [dialog, setDialog] = useSH(null);
+  const [inputValue, setInputValue] = useSH('');
+  const focusRef = useRH(null);
+
+  useEH(() => {
+    const handler = (e) => {
+      const cfg = e.detail;
+      setInputValue(cfg.initialValue || '');
+      setDialog(cfg);
+      setTimeout(() => focusRef.current?.focus(), 20);
+    };
+    window.addEventListener('__dialog', handler);
+    return () => window.removeEventListener('__dialog', handler);
+  }, []);
+
+  if (!dialog) return null;
+
+  const close = (result) => {
+    const resolve = dialog.resolve;
+    setDialog(null);
+    setInputValue('');
+    resolve(result);
+  };
+
+  const onConfirm = () => {
+    if (dialog.kind === 'confirm') close(true);
+    else close(inputValue);
+  };
+  const onCancel = () => close(dialog.kind === 'confirm' ? false : null);
+
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+    else if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); onConfirm(); }
+  };
+
+  return (
+    <div className="dialog-overlay" onClick={onCancel} onKeyDown={onKey} role="dialog" aria-modal="true">
+      <div className="dialog-panel" onClick={e => e.stopPropagation()}>
+        {dialog.title && <div className="dialog-title">{dialog.title}</div>}
+        {dialog.message && <div className="dialog-message">{dialog.message}</div>}
+
+        {dialog.kind === 'prompt' && dialog.options && (
+          <select
+            ref={focusRef}
+            className="dialog-select"
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
+          >
+            <option value="">— {dialog.emptyLabel || 'Nenhum'} —</option>
+            {dialog.options.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        )}
+
+        {dialog.kind === 'prompt' && !dialog.options && (
+          <input
+            ref={focusRef}
+            type="text"
+            className="dialog-input"
+            placeholder={dialog.placeholder || ''}
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
+          />
+        )}
+
+        <div className="dialog-actions">
+          <button className="btn" onClick={onCancel} type="button">
+            {dialog.cancelLabel || 'Cancelar'}
+          </button>
+          <button
+            ref={dialog.kind === 'confirm' ? focusRef : null}
+            className={'btn ' + (dialog.danger ? 'btn-danger' : 'btn-primary')}
+            onClick={onConfirm}
+            type="button"
+          >
+            {dialog.confirmLabel || (dialog.kind === 'confirm' ? 'Confirmar' : 'OK')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const confirmDialog = (cfg) => new Promise((resolve) => {
+  const detail = typeof cfg === 'string' ? { message: cfg } : { ...cfg };
+  detail.kind = 'confirm';
+  detail.resolve = resolve;
+  window.dispatchEvent(new CustomEvent('__dialog', { detail }));
+});
+
+const promptDialog = (cfg) => new Promise((resolve) => {
+  const detail = typeof cfg === 'string' ? { message: cfg } : { ...cfg };
+  detail.kind = 'prompt';
+  detail.resolve = resolve;
+  window.dispatchEvent(new CustomEvent('__dialog', { detail }));
+});
+
+Object.assign(window, { useHistory, ToastHost, toast, useHotkeys, HotkeysHelp, DialogHost, confirmDialog, promptDialog });

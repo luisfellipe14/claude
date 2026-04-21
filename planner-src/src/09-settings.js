@@ -63,20 +63,19 @@ const SettingsPanel = ({ tasks, onTasksChange, onClose, onDataChange }) => {
     setTeam(team.map(m => m.id === id ? { ...m, ...patch, initials: patch.name ? makeInitials(patch.name) : m.initials } : m));
   };
 
-  const removeMember = (id) => {
+  const removeMember = async (id) => {
+    const member = team.find(m => m.id === id);
     const used = tasks.filter(t => t.assignees.includes(id));
     if (used.length > 0) {
       const others = team.filter(m => m.id !== id);
-      const names = others.map(o => `${o.id}=${o.name}`).join('\n');
-      const target = prompt(
-        `${used.length} tarefa(s) estão atribuídas a este responsável.\n\n` +
-        `Digite o ID de outro responsável para transferir, ou deixe em branco para apenas remover a atribuição:\n\n${names}`
-      );
+      const target = await promptDialog({
+        title: 'Transferir atribuições',
+        message: `${used.length} tarefa(s) estão atribuídas a ${member?.name || id}. Selecione outro responsável para transferir, ou deixe em branco para apenas remover a atribuição.`,
+        options: others.map(o => ({ value: o.id, label: o.name })),
+        emptyLabel: 'Apenas remover atribuição',
+        confirmLabel: 'Aplicar',
+      });
       if (target === null) return; // cancelou
-      if (target && !others.find(o => o.id === target)) {
-        alert('ID inválido. Operação cancelada.');
-        return;
-      }
       const updated = tasks.map(t => {
         if (!t.assignees.includes(id)) return t;
         const filtered = t.assignees.filter(a => a !== id);
@@ -100,20 +99,19 @@ const SettingsPanel = ({ tasks, onTasksChange, onClose, onDataChange }) => {
     setProjects(projects.map(p => p.id === id ? { ...p, label } : p));
   };
 
-  const removeProject = (id) => {
+  const removeProject = async (id) => {
+    const proj = projects.find(p => p.id === id);
     const used = tasks.filter(t => t.project === id);
     if (used.length > 0) {
       const others = projects.filter(p => p.id !== id);
-      const list = others.map(o => `${o.id}=${o.label}`).join('\n');
-      const target = prompt(
-        `${used.length} tarefa(s) pertencem a este projeto.\n\n` +
-        `Digite o ID de outro projeto para transferir, ou deixe em branco para remover a associação:\n\n${list}`
-      );
+      const target = await promptDialog({
+        title: 'Transferir tarefas de projeto',
+        message: `${used.length} tarefa(s) pertencem a ${proj?.label || id}. Selecione outro projeto para transferir, ou deixe em branco para remover a associação.`,
+        options: others.map(o => ({ value: o.id, label: o.label })),
+        emptyLabel: 'Apenas remover associação',
+        confirmLabel: 'Aplicar',
+      });
       if (target === null) return;
-      if (target && !others.find(o => o.id === target)) {
-        alert('ID inválido. Operação cancelada.');
-        return;
-      }
       const updated = tasks.map(t => t.project === id ? { ...t, project: target || null } : t);
       onTasksChange(updated);
     }
