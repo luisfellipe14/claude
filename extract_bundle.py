@@ -103,6 +103,8 @@ def extract_inline_style(template: str) -> str | None:
 def main() -> int:
     if not BUNDLE.exists():
         sys.exit(f"error: {BUNDLE} not found")
+    if not SRC_TREE.exists():
+        sys.exit(f"error: {SRC_TREE} not found")
 
     html = BUNDLE.read_text(encoding="utf-8")
     manifest = json.loads(extract_bundler_block(html, "manifest"))
@@ -142,12 +144,20 @@ def main() -> int:
         for line in unmapped:
             print(f"  {line}")
 
-    # Run diff -ruN for a complete, readable report.
-    result = subprocess.run(
-        ["diff", "-ruN", str(SRC_TREE), str(OUT)],
-        capture_output=True,
-        text=True,
-    )
+    # Run diff -ruN for a complete, readable report. Relative paths + cwd=ROOT
+    # keep the generated bundle-diff.txt free of absolute system paths.
+    try:
+        result = subprocess.run(
+            ["diff", "-ruN", SRC_TREE.name, OUT.name],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        sys.exit("error: 'diff' command not found — install diffutils to generate the report")
+    # diff exits 0 (no differences) or 1 (differences). >1 signals a real error.
+    if result.returncode > 1:
+        print(f"warning: diff exited {result.returncode}:\n{result.stderr}")
     DIFF_FILE.write_text(result.stdout, encoding="utf-8")
     print(f"\nwrote {DIFF_FILE.relative_to(ROOT)} ({len(result.stdout):,} bytes)")
 
@@ -163,7 +173,7 @@ def main() -> int:
                 continue
             where, name = m.group(1), m.group(2)
             path = f"{where}/{name}"
-            if where.startswith(str(SRC_TREE)):
+            if where.startswith(SRC_TREE.name):
                 only_src.append(path)
             else:
                 only_bundle.append(path)
