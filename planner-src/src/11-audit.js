@@ -49,14 +49,8 @@ const AuditPanel = ({ onClose }) => {
     );
   }, [log, filter]);
 
-  const clearLog = async () => {
-    const ok = await confirmDialog({
-      title: 'Limpar log',
-      message: 'Remover todas as entradas do log de auditoria?',
-      danger: true,
-      confirmLabel: 'Limpar',
-    });
-    if (!ok) return;
+  const clearLog = () => {
+    if (!window.confirm('Remover todas as entradas do log de auditoria?')) return;
     localStorage.removeItem(AUDIT_KEY);
     setLog([]);
   };
