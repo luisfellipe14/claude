@@ -3,6 +3,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Planner · Alta Tensão</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
 <link rel="stylesheet" href="src/style.css">
 <script src="vendor/react.development.js"></script>
 <script src="vendor/react-dom.development.js"></script>
@@ -20,7 +22,14 @@
 <script type="text/babel" src="src/07-notifications.js"></script>
 <script type="text/babel" src="src/08-sync.js"></script>
 <script type="text/babel" src="src/09-settings.js"></script>
+<script type="text/babel" src="src/11-audit.js"></script>
 <script type="text/babel" src="src/10-app.js"></script>
-
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
 
 </body></html>

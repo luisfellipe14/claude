@@ -1,7 +1,7 @@
 // Kanban view
 const { useState, useMemo } = React;
 
-const KanbanCard = ({ task, onOpen, onDragStart, onDragEnd, isDragging }) => {
+const KanbanCard = React.memo(({ task, onOpen, onDragStart, onDragEnd, isDragging }) => {
   const dueDate = new Date(task.due);
   const todayD = new Date(); todayD.setHours(0,0,0,0);
   const diffDays = Math.round((dueDate - todayD) / 86400000);
@@ -66,7 +66,7 @@ const KanbanCard = ({ task, onOpen, onDragStart, onDragEnd, isDragging }) => {
       )}
     </div>
   );
-};
+});
 
 const KanbanView = ({ tasks, onOpen, onMove, onNew }) => {
   const [dragId, setDragId] = useState(null);

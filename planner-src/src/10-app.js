@@ -4,7 +4,12 @@ const { useState: useS, useEffect: useE, useMemo: useM } = React;
 const STORAGE_KEY = 'planner_at_v1';
 const THEME_KEY = 'planner_at_theme';
 
-const migrate = (t) => ({ subtasks: [], comments: [], ...t });
+const migrate = (t) => ({
+  subtasks: [], comments: [],
+  impact: 'medio',
+  fundamentacao: '',
+  ...t,
+});
 
 const loadTasks = () => {
   try {
@@ -14,13 +19,26 @@ const loadTasks = () => {
   return SEED_TASKS.map(migrate);
 };
 
-const newBlankTask = (status = 'todo') => {
+// Gera um novo ID AT-XXXX sem colisão com tarefas existentes.
+const nextTaskId = (existing) => {
+  const used = new Set(existing.map(t => t.id));
+  const nums = existing
+    .map(t => /^AT-(\d+)$/.exec(t.id))
+    .filter(Boolean)
+    .map(m => Number(m[1]));
+  let n = (nums.length ? Math.max(...nums) : 2060) + 1;
+  while (used.has('AT-' + n)) n++;
+  return 'AT-' + n;
+};
+
+const newBlankTask = (status = 'todo', existing = []) => {
   const today = new Date().toISOString().slice(0, 10);
   const inWeek = new Date();inWeek.setDate(inWeek.getDate() + 7);
   return {
-    id: 'AT-' + (2060 + Math.floor(Math.random() * 900)),
+    id: nextTaskId(existing),
     title: '', desc: '',
-    status, priority: 'media',
+    status, priority: 'media', impact: 'medio',
+    fundamentacao: '',
     assignees: ['me'],
     project: 'pdd',
     start: today,
@@ -33,11 +51,89 @@ const newBlankTask = (status = 'todo') => {
   };
 };
 
+// Heatmap Impacto × Prioridade. Clique numa célula aplica os filtros.
+const RiskHeatmap = React.memo(({ matrix, onSelect }) => {
+  const [open, setOpen] = React.useState(() => localStorage.getItem('planner_at_heatmap_open') !== '0');
+  React.useEffect(() => { localStorage.setItem('planner_at_heatmap_open', open ? '1' : '0'); }, [open]);
+  const impRows = [{id:'alto',label:'Alto'},{id:'medio',label:'Médio'},{id:'baixo',label:'Baixo'}];
+  const priCols = [{id:'alta',label:'Alta'},{id:'media',label:'Média'},{id:'baixa',label:'Baixa'}];
+  return (
+    <div style={{background:'var(--surface)', border:'1px solid var(--line)', borderRadius:'var(--r-lg)', marginBottom:16, overflow:'hidden'}}>
+      <button onClick={() => setOpen(!open)} style={{
+        width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 16px',
+        background:'transparent', border:'none', cursor:'pointer', color:'var(--ink)',
+        fontSize:13, fontWeight:600,
+      }}>
+        <Icon name="flag" size={14}/> Matriz de Risco (Impacto × Prioridade)
+        <span style={{flex:1}}/>
+        <span style={{fontSize:11, color:'var(--ink-3)', fontFamily:'var(--mono)', fontWeight:400}}>ativas</span>
+        <Icon name={open ? 'chevronD' : 'chevronR'} size={14}/>
+      </button>
+      {open && (
+        <div style={{padding:'4px 16px 16px', display:'grid', gridTemplateColumns:'60px repeat(3, 1fr)', gap:4, alignItems:'center'}}>
+          <div/>
+          {priCols.map(p => (
+            <div key={p.id} style={{fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--ink-3)', textAlign:'center', fontWeight:600}}>
+              Prio. {p.label}
+            </div>
+          ))}
+          {impRows.map(imp => (
+            <React.Fragment key={imp.id}>
+              <div style={{fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--ink-3)', fontWeight:600, textAlign:'right', paddingRight:6}}>
+                Imp. {imp.label}
+              </div>
+              {priCols.map(pri => {
+                const items = matrix[imp.id + '-' + pri.id] || [];
+                const r = riskLevel(imp.id, pri.id);
+                const bg = {
+                  critico: 'oklch(88% 0.10 25)',
+                  alto:    'oklch(92% 0.06 45)',
+                  medio:   'oklch(95% 0.04 75)',
+                  baixo:   'oklch(96% 0.02 155)',
+                }[r.id];
+                const ink = {
+                  critico: 'oklch(35% 0.14 25)',
+                  alto:    'oklch(40% 0.12 45)',
+                  medio:   'oklch(40% 0.10 75)',
+                  baixo:   'oklch(38% 0.08 155)',
+                }[r.id];
+                return (
+                  <button key={pri.id} onClick={() => items.length > 0 && onSelect(imp.id, pri.id)}
+                    disabled={items.length === 0}
+                    style={{
+                      background: items.length > 0 ? bg : 'var(--bg-2)',
+                      color: items.length > 0 ? ink : 'var(--ink-4)',
+                      border: '1px solid ' + (items.length > 0 ? ink : 'var(--line)'),
+                      borderRadius: 8, padding: '10px 8px',
+                      cursor: items.length > 0 ? 'pointer' : 'default',
+                      display:'flex', flexDirection:'column', alignItems:'center', gap:2,
+                      opacity: items.length > 0 ? 1 : 0.5,
+                    }}>
+                    <span style={{fontFamily:'var(--mono)', fontSize:18, fontWeight:700}}>{items.length}</span>
+                    <span style={{fontSize:10, textTransform:'uppercase', letterSpacing:'0.04em'}}>{r.label}</span>
+                  </button>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
 const App = () => {
   const [tasks, setTasks, history] = useHistory(loadTasks);
   const [view, setView] = useS(() => localStorage.getItem('planner_at_view') || 'kanban');
   const [theme, setTheme] = useS(() => localStorage.getItem(THEME_KEY) || 'light');
-  const [openId, setOpenId] = useS(null);
+  const [openId, setOpenId] = useS(() => {
+    // Deep link: ?task=AT-XXXX abre direto
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get('task');
+      return t && /^AT-\d+$/.test(t) ? t : null;
+    } catch (e) { return null; }
+  });
   const [isNew, setIsNew] = useS(false);
   const [newDraft, setNewDraft] = useS(null);
 
@@ -46,25 +142,42 @@ const App = () => {
   const [filterAssignee, setFilterAssignee] = useS('all');
   const [filterProject, setFilterProject] = useS('all');
   const [filterPriority, setFilterPriority] = useS('all');
+  const [filterImpact, setFilterImpact] = useS('all');
+  const [filterRisk, setFilterRisk] = useS('all');
   const [filterRecurrent, setFilterRecurrent] = useS(false);
   const [currentView, setCurrentView] = useS(null);
   const [showInteg, setShowInteg] = useS(false);
   const [showSync, setShowSync] = useS(false);
   const [showSettings, setShowSettings] = useS(false);
+  const [showAudit, setShowAudit] = useS(false);
   const [showHotkeys, setShowHotkeys] = useS(false);
   const [, forceTick] = useS(0);
   const searchRef = React.useRef(null);
 
   useAutoFileSync(tasks);
 
+  // Persistência local com debounce — evita serializar o JSON inteiro em cada tecla.
   useE(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    const id = setTimeout(() => {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); } catch (e) { console.warn('Falha ao salvar localStorage', e); }
+    }, 300);
+    return () => clearTimeout(id);
   }, [tasks]);
   useE(() => {localStorage.setItem('planner_at_view', view);}, [view]);
   useE(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
+
+  // Reflete a tarefa aberta na URL para permitir compartilhar link / voltar.
+  useE(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (openId) url.searchParams.set('task', openId);
+      else url.searchParams.delete('task');
+      window.history.replaceState(null, '', url.toString());
+    } catch (e) {}
+  }, [openId]);
 
   const filtered = useM(() => {
     return tasks.filter((t) => {
@@ -73,15 +186,18 @@ const App = () => {
         if (!(t.title.toLowerCase().includes(q) ||
         t.id.toLowerCase().includes(q) ||
         (t.desc || '').toLowerCase().includes(q) ||
+        (t.fundamentacao || '').toLowerCase().includes(q) ||
         t.tags.some((tg) => tg.toLowerCase().includes(q)))) return false;
       }
       if (filterAssignee !== 'all' && !t.assignees.includes(filterAssignee)) return false;
       if (filterProject !== 'all' && t.project !== filterProject) return false;
       if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
+      if (filterImpact !== 'all' && (t.impact || 'medio') !== filterImpact) return false;
+      if (filterRisk !== 'all' && riskLevel(t.impact || 'medio', t.priority).id !== filterRisk) return false;
       if (filterRecurrent && !t.recurrent) return false;
       return true;
     });
-  }, [tasks, query, filterAssignee, filterProject, filterPriority, filterRecurrent]);
+  }, [tasks, query, filterAssignee, filterProject, filterPriority, filterImpact, filterRisk, filterRecurrent]);
 
   // Stats (todas as tasks, não filtradas — visão geral)
   const stats = useM(() => {
@@ -94,24 +210,45 @@ const App = () => {
     }).length;
     const inProg = tasks.filter((t) => t.status === 'progress').length;
     const myActive = active.filter((t) => t.assignees.includes('me')).length;
-    return { active: active.length, overdue, dueSoon, inProg, myActive };
+    const critical = active.filter((t) => riskLevel(t.impact || 'medio', t.priority).id === 'critico').length;
+    return { active: active.length, overdue, dueSoon, inProg, myActive, critical };
+  }, [tasks]);
+
+  // Matriz Risco (Impacto × Prioridade) das tarefas ativas.
+  const riskMatrix = useM(() => {
+    const cells = {};
+    ['alto','medio','baixo'].forEach(i => ['alta','media','baixa'].forEach(p => { cells[i+'-'+p] = []; }));
+    tasks.forEach(t => {
+      if (t.status === 'done' || t.status === 'cancel') return;
+      const key = (t.impact || 'medio') + '-' + t.priority;
+      if (cells[key]) cells[key].push(t);
+    });
+    return cells;
   }, [tasks]);
 
   const openTask = tasks.find((t) => t.id === openId);
 
+  const audit = (entry) => { if (typeof appendAudit === 'function') appendAudit(entry); };
+
   const handleMove = (id, newStatus) => {
     const prev = tasks.find(t => t.id === id);
     setTasks(tasks.map((t) => t.id === id ? { ...t, status: newStatus, progress: newStatus === 'done' ? 100 : t.progress } : t));
+    const fromLabel = STATUSES.find(s => s.id === prev?.status)?.label || prev?.status || '—';
     const statusLabel = STATUSES.find(s => s.id === newStatus)?.label || newStatus;
+    audit({ action:'move', taskId:id, taskTitle:prev?.title, detail:`${fromLabel} → ${statusLabel}` });
     toast({ msg: `"${prev?.title || id}" → ${statusLabel}`, kind: 'success' });
   };
   const handleSave = (t) => {
     if (isNew) {
       setTasks([...tasks, t]);
       setIsNew(false);setNewDraft(null);
+      audit({ action:'create', taskId:t.id, taskTitle:t.title });
       toast({ msg: `Tarefa ${t.id} criada`, kind: 'success' });
     } else {
+      const prev = tasks.find(x => x.id === t.id);
       setTasks(tasks.map((x) => x.id === t.id ? t : x));
+      const changedFields = prev ? Object.keys(t).filter(k => JSON.stringify(t[k]) !== JSON.stringify(prev[k])) : [];
+      audit({ action:'update', taskId:t.id, taskTitle:t.title, detail: changedFields.length ? `Alterados: ${changedFields.join(', ')}` : '' });
       toast({ msg: `Tarefa ${t.id} salva`, kind: 'success' });
     }
     setOpenId(null);
@@ -122,36 +259,50 @@ const App = () => {
     if (!confirm('Excluir esta tarefa?')) return;
     setTasks(tasks.filter((x) => x.id !== id));
     setOpenId(null);setIsNew(false);setNewDraft(null);
+    audit({ action:'delete', taskId:id, taskTitle:t.title });
     toast({
       msg: `Tarefa ${id} excluída`, kind: 'info',
       action: { label: 'Desfazer', onClick: () => history.undo() }
     });
   };
   const handleNew = (status = 'todo') => {
-    const d = newBlankTask(status);
+    const d = newBlankTask(status, tasks);
     setNewDraft(d);
     setIsNew(true);
   };
   const updateTaskDates = (id, start, due) => {
+    const prev = tasks.find(t => t.id === id);
     setTasks(tasks.map(t => t.id === id ? { ...t, start, due } : t));
+    if (prev && (prev.start !== start || prev.due !== due)) {
+      audit({ action:'resize', taskId:id, taskTitle:prev.title, detail:`${start} → ${due}` });
+    }
   };
 
   const exportCSV = () => {
-    const header = ['ID', 'Título', 'Status', 'Prioridade', 'Responsáveis', 'Projeto', 'Início', 'Conclusão', 'Progresso', 'Tags'];
-    const rows = tasks.map((t) => [
-    t.id, t.title,
-    STATUSES.find((s) => s.id === t.status)?.label,
-    t.priority,
-    t.assignees.map((a) => TEAM.find((x) => x.id === a)?.name).join('; '),
-    PROJECTS.find((p) => p.id === t.project)?.label || '',
-    t.start, t.due, t.progress + '%', t.tags.join('; ')]
-    );
+    const source = filtered.length > 0 ? filtered : tasks;
+    const header = ['ID', 'Título', 'Escopo', 'Fundamentação', 'Status', 'Prioridade', 'Impacto', 'Risco', 'Responsáveis', 'Objetivo estratégico', 'Projeto', 'Início', 'Prazo fatal', 'Progresso', 'Tags'];
+    const rows = source.map((t) => {
+      const proj = PROJECTS.find((p) => p.id === t.project);
+      const obj = proj && (window.OBJECTIVES || []).find((o) => o.id === proj.objective);
+      return [
+        t.id, t.title, t.desc || '', t.fundamentacao || '',
+        STATUSES.find((s) => s.id === t.status)?.label,
+        PRIORITIES.find((p) => p.id === t.priority)?.label || t.priority,
+        IMPACTS.find((i) => i.id === (t.impact || 'medio'))?.label,
+        riskLevel(t.impact || 'medio', t.priority).label,
+        t.assignees.map((a) => TEAM.find((x) => x.id === a)?.name).join('; '),
+        obj?.label || '',
+        proj?.label || '',
+        t.start, t.due, t.progress + '%', t.tags.join('; '),
+      ];
+    });
     const csv = [header, ...rows].map((r) => r.map((v) => `"${(v || '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;a.download = `planner-at-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();URL.revokeObjectURL(url);
+    toast({ msg: `${source.length} tarefa(s) exportada(s)${source === filtered && filtered.length < tasks.length ? ' (filtrado)' : ''}`, kind: 'success' });
   };
 
   // Atalhos globais
@@ -166,6 +317,7 @@ const App = () => {
       else if (showInteg) setShowInteg(false);
       else if (showSync) setShowSync(false);
       else if (showSettings) setShowSettings(false);
+      else if (showAudit) setShowAudit(false);
       else if (isNew) { setIsNew(false); setNewDraft(null); }
       else if (openId) setOpenId(null);
     },
@@ -173,7 +325,7 @@ const App = () => {
     'mod+shift+z': () => { if (history.canRedo) { history.redo(); toast({ msg: 'Refeito', kind: 'info', ttl: 1500 }); } },
     'mod+y': () => { if (history.canRedo) { history.redo(); toast({ msg: 'Refeito', kind: 'info', ttl: 1500 }); } },
     'mod+k': (e) => { e.preventDefault?.(); searchRef.current?.focus(); searchRef.current?.select(); },
-  }, [openId, isNew, showHotkeys, showInteg, showSync, showSettings, history.canUndo, history.canRedo]);
+  }, [openId, isNew, showHotkeys, showInteg, showSync, showSettings, showAudit, history.canUndo, history.canRedo]);
 
   return (
     <div className="app">
@@ -231,6 +383,11 @@ const App = () => {
               <path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>
             </svg>
           </button>
+          <button className="icon-btn" onClick={() => setShowAudit(true)} title="Log de auditoria">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>
+            </svg>
+          </button>
           <button className="btn" onClick={exportCSV} title="Exportar CSV">
             <Icon name="export" /> Exportar
           </button>
@@ -286,7 +443,7 @@ const App = () => {
           {PROJECTS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
         </select>
 
-        <div className="chip-group">
+        <div className="chip-group" title="Prioridade (urgência)">
           {['all', 'alta', 'media', 'baixa'].map((p) =>
           <div key={p}
           className={'chip' + (filterPriority === p ? ' active' : '')}
@@ -295,6 +452,19 @@ const App = () => {
             </div>
           )}
         </div>
+
+        <select className="select" value={filterImpact} onChange={(e) => setFilterImpact(e.target.value)} title="Impacto no negócio">
+          <option value="all">Todos impactos</option>
+          {IMPACTS.map((i) => <option key={i.id} value={i.id}>Impacto {i.label.toLowerCase()}</option>)}
+        </select>
+
+        <select className="select" value={filterRisk} onChange={(e) => setFilterRisk(e.target.value)} title="Risco (Impacto × Prioridade)">
+          <option value="all">Todos riscos</option>
+          <option value="critico">Risco Crítico</option>
+          <option value="alto">Risco Alto</option>
+          <option value="medio">Risco Médio</option>
+          <option value="baixo">Risco Baixo</option>
+        </select>
 
         <div className={'chip' + (filterRecurrent ? ' active' : '')} onClick={() => setFilterRecurrent(!filterRecurrent)}>
           <Icon name="repeat" size={11} /> Recorrentes
@@ -320,7 +490,7 @@ const App = () => {
             <div className="stat-icon accent"><Icon name="zap" /></div>
             <div>
               <div className="num">{stats.inProg}</div>
-              <div className="lbl">Em andamento</div>
+              <div className="lbl">Em Execução</div>
             </div>
           </div>
           <div className="stat">
@@ -337,6 +507,13 @@ const App = () => {
               <div className="lbl">Vencem ≤ 3d</div>
             </div>
           </div>
+          <div className="stat" onClick={() => setFilterRisk('critico')} style={{cursor: stats.critical > 0 ? 'pointer' : 'default'}} title="Clique para filtrar">
+            <div className="stat-icon alert"><Icon name="flag" /></div>
+            <div>
+              <div className="num">{stats.critical}</div>
+              <div className="lbl">Risco crítico</div>
+            </div>
+          </div>
           <div className="stat">
             <div className="stat-icon"><Icon name="user" /></div>
             <div>
@@ -345,6 +522,8 @@ const App = () => {
             </div>
           </div>
         </div>
+
+        <RiskHeatmap matrix={riskMatrix} onSelect={(imp, pri) => { setFilterImpact(imp); setFilterPriority(pri); }}/>
 
         {view === 'kanban' &&
         <KanbanView
@@ -382,6 +561,7 @@ const App = () => {
       {showInteg && <IntegrationModal tasks={tasks} onClose={() => setShowInteg(false)}/>}
       {showSync && <SyncPanel tasks={tasks} onImport={(imported) => setTasks(imported.map(migrate))} onClose={() => setShowSync(false)}/>}
       {showSettings && <SettingsPanel tasks={tasks} onTasksChange={setTasks} onDataChange={() => forceTick(x=>x+1)} onClose={() => setShowSettings(false)}/>}
+      {showAudit && <AuditPanel onClose={() => setShowAudit(false)} />}
       {showHotkeys && <HotkeysHelp onClose={() => setShowHotkeys(false)} />}
       <ToastHost />
     </div>);
