@@ -535,70 +535,6 @@ button { cursor: pointer; border: none; background: transparent; }
 .btn-primary:hover { background: var(--ink-2); border-color: var(--ink-2); }
 .btn-ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
 .btn-ghost:hover { background: var(--bg-2); color: var(--ink); }
-.btn-danger {
-  background: var(--p-alta);
-  color: white;
-  border-color: var(--p-alta);
-}
-.btn-danger:hover { filter: brightness(0.92); }
-
-/* ============= DIALOG (CONFIRM / PROMPT) ============= */
-.dialog-overlay {
-  position: fixed; inset: 0;
-  background: oklch(0% 0 0 / 0.35);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 200;
-  padding: 20px;
-  animation: dialog-fade 0.12s ease-out;
-}
-@keyframes dialog-fade { from { opacity: 0; } to { opacity: 1; } }
-
-.dialog-panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
-  width: min(440px, 100%);
-  padding: 20px 22px;
-  animation: dialog-pop 0.14s ease-out;
-}
-@keyframes dialog-pop {
-  from { transform: scale(0.96); opacity: 0; }
-  to   { transform: scale(1);    opacity: 1; }
-}
-
-.dialog-title {
-  font-size: 15px; font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  margin-bottom: 8px;
-}
-.dialog-message {
-  font-size: 13px;
-  color: var(--ink-2);
-  line-height: 1.5;
-  margin-bottom: 14px;
-  white-space: pre-wrap;
-}
-.dialog-input, .dialog-select {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 13px;
-  outline: none;
-  margin-bottom: 14px;
-  font-family: inherit;
-}
-.dialog-input:focus, .dialog-select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-wash);
-}
-.dialog-actions {
-  display: flex; justify-content: flex-end; gap: 8px;
-}
 
 .avatar {
   width: 26px; height: 26px; border-radius: 50%;
@@ -1254,19 +1190,3 @@ button { cursor: pointer; border: none; background: transparent; }
   cursor: grab;
 }
 .tl-bar.dragging .tl-bar-body { cursor: grabbing; }
-
-/* ============= DEPENDÊNCIAS NO GANTT ============= */
-.tl-dep-badge {
-  display: inline-block;
-  margin-left: 4px;
-  font-size: 10px;
-  color: var(--accent);
-  font-family: var(--mono);
-  font-weight: 600;
-  opacity: 0.8;
-}
-
-/* ============= LOG DE AUDITORIA ============= */
-/* Usa .modal + .modal-overlay existentes — nenhuma classe extra necessária */
-
-/* ============= PWA install button — reutiliza .btn ============= */

@@ -1,7 +1,7 @@
 // Modal de detalhes / edição da tarefa
 const { useState: useStateM, useEffect: useEffectM } = React;
 
-const TaskModal = ({ task, allTasks, onClose, onSave, onDelete }) => {
+const TaskModal = ({ task, onClose, onSave, onDelete }) => {
   const [draft, setDraft] = useStateM(task);
   useEffectM(() => setDraft(task), [task?.id]);
 
@@ -222,45 +222,6 @@ const TaskModal = ({ task, allTasks, onClose, onSave, onDelete }) => {
                 <option value="monthly">Mensal</option>
                 <option value="quarterly">Trimestral</option>
               </select>
-            </div>
-
-            <div className="side-section">
-              <div className="side-title">Predecessoras</div>
-              <div style={{display:'grid', gap:4}}>
-                {(draft.deps || []).map(depId => {
-                  const dep = (allTasks||[]).find(t => t.id === depId);
-                  return (
-                    <div key={depId} style={{
-                      display:'flex', alignItems:'center', gap:6, padding:'5px 8px',
-                      background:'var(--bg-2)', borderRadius:6, border:'1px solid var(--line)',
-                    }}>
-                      <span style={{fontFamily:'var(--mono)', fontSize:10, color:'var(--ink-3)', flexShrink:0}}>{depId}</span>
-                      <span style={{flex:1, fontSize:12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'var(--ink-2)'}}>
-                        {dep?.title || '—'}
-                      </span>
-                      <button className="icon-btn" style={{width:20, height:20, flexShrink:0}}
-                        onClick={() => update({deps: (draft.deps||[]).filter(d => d !== depId)})}>
-                        <Icon name="x" size={11}/>
-                      </button>
-                    </div>
-                  );
-                })}
-                <select className="select" style={{fontSize:12}}
-                  value=""
-                  onChange={e => {
-                    const v = e.target.value;
-                    if (!v) return;
-                    if (!(draft.deps||[]).includes(v))
-                      update({deps: [...(draft.deps||[]), v]});
-                  }}>
-                  <option value="">+ Adicionar predecessora…</option>
-                  {(allTasks||[])
-                    .filter(t => t.id !== draft.id && !(draft.deps||[]).includes(t.id))
-                    .map(t => (
-                      <option key={t.id} value={t.id}>{t.id} · {t.title}</option>
-                    ))}
-                </select>
-              </div>
             </div>
           </div>
         </div>

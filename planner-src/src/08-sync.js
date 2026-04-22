@@ -152,13 +152,7 @@ const SyncPanel = ({ tasks, onImport, onClose }) => {
   const doImport = async () => {
     try {
       const imported = await importJSONFile();
-      const ok = await confirmDialog({
-        title: 'Importar tarefas',
-        message: `Importar ${imported.length} tarefa(s)? Os dados atuais serão substituídos.`,
-        danger: true,
-        confirmLabel: 'Importar e substituir',
-      });
-      if (ok) {
+      if (confirm(`Importar ${imported.length} tarefa(s)? Os dados atuais serão substituídos.`)) {
         onImport(imported);
         setStatus(`✓ ${imported.length} tarefa(s) importada(s)`);
       }

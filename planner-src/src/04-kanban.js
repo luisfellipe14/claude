@@ -1,7 +1,7 @@
 // Kanban view
-const { useState, useMemo, useCallback } = React;
+const { useState, useMemo } = React;
 
-const KanbanCard = React.memo(({ task, onOpen, onDragStart, onDragEnd, isDragging }) => {
+const KanbanCard = ({ task, onOpen, onDragStart, onDragEnd, isDragging }) => {
   const dueDate = new Date(task.due);
   const todayD = new Date(); todayD.setHours(0,0,0,0);
   const diffDays = Math.round((dueDate - todayD) / 86400000);
@@ -66,20 +66,11 @@ const KanbanCard = React.memo(({ task, onOpen, onDragStart, onDragEnd, isDraggin
       )}
     </div>
   );
-});
+};
 
 const KanbanView = ({ tasks, onOpen, onMove, onNew }) => {
   const [dragId, setDragId] = useState(null);
   const [dragOver, setDragOver] = useState(null);
-
-  const handleDragStart = useCallback((e, id) => {
-    setDragId(id);
-    e.dataTransfer.effectAllowed = 'move';
-  }, []);
-  const handleDragEnd = useCallback(() => {
-    setDragId(null);
-    setDragOver(null);
-  }, []);
 
   const byStatus = useMemo(() => {
     const m = {};
@@ -123,8 +114,8 @@ const KanbanView = ({ tasks, onOpen, onMove, onNew }) => {
               <KanbanCard
                 key={t.id} task={t}
                 onOpen={onOpen}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
+                onDragStart={(e, id) => { setDragId(id); e.dataTransfer.effectAllowed = 'move'; }}
+                onDragEnd={() => { setDragId(null); setDragOver(null); }}
                 isDragging={dragId === t.id}
               />
             ))}
