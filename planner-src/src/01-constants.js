@@ -1,34 +1,66 @@
 // Seed data + constantes do domínio
 // Contexto: planejamento de alta tensão em distribuidora de energia
 
+// Status estáticos e precisos, conforme padrão do setor.
 const STATUSES = [
-  { id: 'todo',     label: 'A fazer',        color: 'var(--s-todo)'     },
-  { id: 'progress', label: 'Em andamento',   color: 'var(--s-progress)' },
-  { id: 'review',   label: 'Em aprovação',   color: 'var(--s-review)'   },
-  { id: 'done',     label: 'Concluída',      color: 'var(--s-done)'     },
-  { id: 'cancel',   label: 'Cancelada',      color: 'var(--s-cancel)'   },
+  { id: 'todo',     label: 'Não Iniciado',          color: 'var(--s-todo)'     },
+  { id: 'progress', label: 'Em Execução',           color: 'var(--s-progress)' },
+  { id: 'review',   label: 'Pendente de Aprovação', color: 'var(--s-review)'   },
+  { id: 'done',     label: 'Finalizado',            color: 'var(--s-done)'     },
+  { id: 'cancel',   label: 'Cancelado',             color: 'var(--s-cancel)'   },
 ];
 
+// Prioridade (urgência da execução).
 const PRIORITIES = [
   { id: 'alta',  label: 'Alta'  },
   { id: 'media', label: 'Média' },
   { id: 'baixa', label: 'Baixa' },
 ];
 
+// Impacto no negócio (efeito caso não seja entregue). Eixo independente da prioridade.
+const IMPACTS = [
+  { id: 'alto',  label: 'Alto'  },
+  { id: 'medio', label: 'Médio' },
+  { id: 'baixo', label: 'Baixo' },
+];
+
+// Matriz Risco = Impacto × Prioridade. Valor ∈ {baixo, médio, alto, crítico}.
+const riskLevel = (impact, priority) => {
+  const i = { alto: 3, medio: 2, baixo: 1 }[impact] || 2;
+  const p = { alta: 3, media: 2, baixa: 1 }[priority] || 2;
+  const s = i * p;
+  if (s >= 9) return { id: 'critico', label: 'Crítico' };
+  if (s >= 6) return { id: 'alto',    label: 'Alto'    };
+  if (s >= 3) return { id: 'medio',   label: 'Médio'   };
+  return           { id: 'baixo',   label: 'Baixo'   };
+};
+
+// Responsáveis com papéis fixos e ordem de escalonamento (1 → topo da matriz).
 const TEAM_SEED = [
-  { id: 'me', name: 'Você',            initials: 'VC', role: 'Planejamento AT' },
-  { id: 'rs', name: 'Renata Siqueira', initials: 'RS', role: 'Engª de Proteção' },
-  { id: 'mc', name: 'Marcos Coelho',   initials: 'MC', role: 'Engº de Sistemas' },
-  { id: 'ab', name: 'Ana Beatriz',     initials: 'AB', role: 'Analista GIS'     },
-  { id: 'lf', name: 'Luís Fonseca',    initials: 'LF', role: 'Coord. Operação'  },
+  { id: 'me', name: 'Você',            initials: 'VC', role: 'Planejamento AT',  escalation: 2 },
+  { id: 'lz', name: 'Luiz',            initials: 'LZ', role: 'Planejamento',     escalation: 2 },
+  { id: 'ml', name: 'Melanie',         initials: 'ML', role: 'Jurídico',         escalation: 2 },
+  { id: 'it', name: 'Ítalo',           initials: 'IT', role: 'Aprovação e Gestão', escalation: 1 },
+  { id: 'rs', name: 'Renata Siqueira', initials: 'RS', role: 'Engª de Proteção', escalation: 3 },
+  { id: 'mc', name: 'Marcos Coelho',   initials: 'MC', role: 'Engº de Sistemas', escalation: 3 },
+  { id: 'ab', name: 'Ana Beatriz',     initials: 'AB', role: 'Analista GIS',     escalation: 3 },
+  { id: 'lf', name: 'Luís Fonseca',    initials: 'LF', role: 'Coord. Operação',  escalation: 2 },
+];
+
+// Macro (objetivos estratégicos anuais) → Micro (projetos → tarefas).
+const OBJECTIVES_SEED = [
+  { id: 'obj-conf',  label: 'Confiabilidade 2026 (DEC/FEC)',   horizon: 'anual' },
+  { id: 'obj-exp',   label: 'Expansão do sistema 138 kV',      horizon: 'anual' },
+  { id: 'obj-reg',   label: 'Conformidade regulatória ANEEL',  horizon: 'anual' },
+  { id: 'obj-op',    label: 'Excelência operacional',          horizon: 'anual' },
 ];
 
 const PROJECTS_SEED = [
-  { id: 'sub-nrt', label: 'SE Norte 138kV' },
-  { id: 'lt-lit',  label: 'LT Litoral' },
-  { id: 'pdd',     label: 'PDD 2026' },
-  { id: 'audit',   label: 'Auditoria ANEEL' },
-  { id: 'manut',   label: 'Manutenção programada' },
+  { id: 'sub-nrt', label: 'SE Norte 138 kV',           objective: 'obj-exp'  },
+  { id: 'lt-lit',  label: 'LT Litoral',                objective: 'obj-conf' },
+  { id: 'pdd',     label: 'PDD 2026',                  objective: 'obj-reg'  },
+  { id: 'audit',   label: 'Auditoria ANEEL',           objective: 'obj-reg'  },
+  { id: 'manut',   label: 'Manutenção programada',     objective: 'obj-op'   },
 ];
 
 // Utilidade: data relativa a hoje
@@ -41,9 +73,10 @@ const d = (offsetDays) => {
 
 const SEED_TASKS = [
   {
-    id: 'AT-2041', title: 'Estudo de fluxo de potência — SE Norte 138/13,8kV',
-    desc: 'Rodar cenários de carga pesada e leve para 2026 considerando nova entrada do Alimentador N-07. Validar limites térmicos dos trafos T1/T2.',
-    status: 'progress', priority: 'alta',
+    id: 'AT-2041', title: 'Estudo de fluxo de potência — SE Norte 138/13,8 kV',
+    desc: 'Rodar cenários de carga pesada e leve para 2026 considerando nova entrada do Alimentador N-07. Validar limites térmicos dos transformadores T1/T2.',
+    status: 'progress', priority: 'alta', impact: 'alto',
+    fundamentacao: 'PR-DST-001 · Manual de Planejamento da Distribuição (ANEEL PRODIST Módulo 2)',
     assignees: ['me', 'mc'], project: 'sub-nrt',
     start: d(-4), due: d(3), progress: 55,
     tags: ['fluxo', 'sep'],
@@ -63,7 +96,8 @@ const SEED_TASKS = [
   {
     id: 'AT-2042', title: 'Ajuste de relés de proteção 50/51 — Alimentador N-07',
     desc: 'Coordenar proteção com o religador a jusante. Enviar parcial para CTEEP.',
-    status: 'progress', priority: 'alta',
+    status: 'progress', priority: 'alta', impact: 'alto',
+    fundamentacao: 'NBR 14039 · Procedimento de Rede ONS Submódulo 2.6',
     assignees: ['rs'], project: 'sub-nrt',
     start: d(-2), due: d(5), progress: 30,
     tags: ['proteção', 'coordenação'], recurrent: null,
@@ -76,8 +110,9 @@ const SEED_TASKS = [
   },
   {
     id: 'AT-2043', title: 'Inspeção termográfica programada — LT Litoral',
-    desc: 'Campanha trimestral em 42km. Agendar com equipe de linha viva.',
-    status: 'todo', priority: 'media',
+    desc: 'Campanha trimestral em 42 km de linha de transmissão. Agendar com equipe de linha viva.',
+    status: 'todo', priority: 'media', impact: 'medio',
+    fundamentacao: 'NR-10 · Procedimento interno PR-MAN-007 (Inspeções Preditivas)',
     assignees: ['ab', 'lf'], project: 'manut',
     start: d(7), due: d(21), progress: 0,
     tags: ['inspeção', 'campo'],
@@ -87,7 +122,8 @@ const SEED_TASKS = [
   {
     id: 'AT-2044', title: 'Revisão do memorial de cálculo da LT Litoral — vão 18-19',
     desc: 'Ajustar tensão mecânica conforme novo estudo de cabos CAA 336,4 MCM.',
-    status: 'review', priority: 'media',
+    status: 'review', priority: 'media', impact: 'medio',
+    fundamentacao: 'NBR 5422 · Projeto de linhas aéreas de transmissão',
     assignees: ['mc'], project: 'lt-lit',
     start: d(-8), due: d(-1), progress: 90,
     tags: ['memorial', 'mecânico'], recurrent: null,
@@ -98,7 +134,8 @@ const SEED_TASKS = [
   {
     id: 'AT-2045', title: 'Plano de desligamento — Troca de isoladores LT-04',
     desc: 'Janela de 6h no domingo. Articular com ONS e CCR.',
-    status: 'todo', priority: 'alta',
+    status: 'todo', priority: 'alta', impact: 'alto',
+    fundamentacao: 'Procedimento de Rede ONS Submódulo 6.1 (Programação da Operação)',
     assignees: ['me', 'lf'], project: 'manut',
     start: d(10), due: d(14), progress: 0,
     tags: ['desligamento', 'ons'], recurrent: null,
@@ -106,8 +143,9 @@ const SEED_TASKS = [
   },
   {
     id: 'AT-2046', title: 'Consolidação PDD 2026 — lote 02',
-    desc: 'Consolidar obras de expansão do lote 02 para envio ao regulador.',
-    status: 'progress', priority: 'media',
+    desc: 'Consolidar empreendimentos de expansão (subestações e linhas de transmissão) do lote 02 para envio ao regulador.',
+    status: 'progress', priority: 'media', impact: 'alto',
+    fundamentacao: 'ANEEL REN 1000/2021 · PDD — Plano de Desenvolvimento da Distribuição',
     assignees: ['me'], project: 'pdd',
     start: d(-6), due: d(9), progress: 40,
     tags: ['pdd', 'regulatório'], recurrent: null,
@@ -116,7 +154,8 @@ const SEED_TASKS = [
   {
     id: 'AT-2047', title: 'Resposta técnica — Ofício ANEEL 2187/2026',
     desc: 'Prazo regulatório para resposta sobre critério de planejamento N-1.',
-    status: 'review', priority: 'alta',
+    status: 'review', priority: 'alta', impact: 'alto',
+    fundamentacao: 'ANEEL REN 956/2021 · Procedimento de Rede ONS Submódulo 2.3',
     assignees: ['me', 'rs'], project: 'audit',
     start: d(-3), due: d(1), progress: 85,
     tags: ['regulatório', 'n-1'], recurrent: null,
@@ -129,9 +168,10 @@ const SEED_TASKS = [
     comments: []
   },
   {
-    id: 'AT-2048', title: 'Atualização cadastral GIS — Bay Norte 138kV',
-    desc: 'Cadastrar novo disjuntor e TC no sistema.',
-    status: 'todo', priority: 'baixa',
+    id: 'AT-2048', title: 'Atualização cadastral GIS — Bay Norte 138 kV',
+    desc: 'Cadastrar novo disjuntor e transformador de corrente no sistema geográfico.',
+    status: 'todo', priority: 'baixa', impact: 'baixo',
+    fundamentacao: 'PR-CAD-003 · Procedimento de Cadastro Técnico de Ativos',
     assignees: ['ab'], project: 'sub-nrt',
     start: d(5), due: d(12), progress: 0,
     tags: ['gis', 'cadastro'], recurrent: null,
@@ -139,8 +179,9 @@ const SEED_TASKS = [
   },
   {
     id: 'AT-2049', title: 'Relatório mensal de indicadores DEC/FEC',
-    desc: 'Compilação dos indicadores do mês para diretoria.',
-    status: 'todo', priority: 'media',
+    desc: 'Compilação dos indicadores de continuidade do mês para a diretoria.',
+    status: 'todo', priority: 'media', impact: 'alto',
+    fundamentacao: 'ANEEL PRODIST Módulo 8 · Qualidade da Energia Elétrica',
     assignees: ['me'], project: 'pdd',
     start: d(2), due: d(6), progress: 0,
     tags: ['indicadores'],
@@ -150,25 +191,28 @@ const SEED_TASKS = [
   {
     id: 'AT-2050', title: 'Modelagem PSS/E — Expansão subterrânea Centro',
     desc: 'Incluir novos circuitos subterrâneos no modelo SIN regional.',
-    status: 'progress', priority: 'media',
+    status: 'progress', priority: 'media', impact: 'medio',
+    fundamentacao: 'Procedimento de Rede ONS Submódulo 18.2 · Modelos Elétricos',
     assignees: ['mc', 'me'], project: 'pdd',
     start: d(-1), due: d(15), progress: 20,
     tags: ['psse', 'modelagem'], recurrent: null,
     comments: []
   },
   {
-    id: 'AT-2051', title: 'Dimensionamento de banco de capacitores 13,8kV',
+    id: 'AT-2051', title: 'Dimensionamento de banco de capacitores 13,8 kV',
     desc: 'Avaliar necessidade de compensação reativa na SE Norte.',
-    status: 'done', priority: 'media',
+    status: 'done', priority: 'media', impact: 'medio',
+    fundamentacao: 'ANEEL PRODIST Módulo 8 · Níveis de tensão em regime permanente',
     assignees: ['rs'], project: 'sub-nrt',
     start: d(-18), due: d(-5), progress: 100,
     tags: ['reativo'], recurrent: null,
     comments: []
   },
   {
-    id: 'AT-2052', title: 'Análise de curto-circuito pós-obra LT-04',
-    desc: 'Recalcular níveis de curto após nova topologia.',
-    status: 'done', priority: 'alta',
+    id: 'AT-2052', title: 'Análise de curto-circuito pós-energização LT-04',
+    desc: 'Recalcular níveis de curto após nova topologia da linha de transmissão.',
+    status: 'done', priority: 'alta', impact: 'alto',
+    fundamentacao: 'IEEE Std 551 · Estudo de curto-circuito em sistemas industriais',
     assignees: ['mc'], project: 'lt-lit',
     start: d(-22), due: d(-8), progress: 100,
     tags: ['curto'], recurrent: null,
@@ -177,7 +221,8 @@ const SEED_TASKS = [
   {
     id: 'AT-2053', title: 'Revisão da diretriz interna DIR-PLJ-015',
     desc: 'Atualizar para nova versão da REN 1000.',
-    status: 'cancel', priority: 'baixa',
+    status: 'cancel', priority: 'baixa', impact: 'baixo',
+    fundamentacao: 'ANEEL REN 1000/2021 (em revisão)',
     assignees: ['me'], project: 'audit',
     start: d(-10), due: d(-2), progress: 10,
     tags: ['diretriz'], recurrent: null,
@@ -186,7 +231,8 @@ const SEED_TASKS = [
   {
     id: 'AT-2054', title: 'Backup e arquivamento de estudos 2025',
     desc: 'Arquivar todos os estudos concluídos em 2025 no repositório.',
-    status: 'todo', priority: 'baixa',
+    status: 'todo', priority: 'baixa', impact: 'medio',
+    fundamentacao: 'PR-DOC-002 · Guarda e preservação de documentos técnicos',
     assignees: ['ab'], project: 'audit',
     start: d(14), due: d(28), progress: 0,
     tags: ['arquivo'], recurrent: null,
@@ -195,7 +241,8 @@ const SEED_TASKS = [
   {
     id: 'AT-2055', title: 'Reunião semanal de planejamento',
     desc: 'Alinhamento da semana com a equipe.',
-    status: 'todo', priority: 'media',
+    status: 'todo', priority: 'media', impact: 'baixo',
+    fundamentacao: 'PR-GES-001 · Ritos de gestão do setor',
     assignees: ['me', 'rs', 'mc', 'ab', 'lf'], project: 'pdd',
     start: d(3), due: d(3), progress: 0,
     tags: ['reunião'],
@@ -204,4 +251,4 @@ const SEED_TASKS = [
   },
 ];
 
-Object.assign(window, { STATUSES, PRIORITIES, TEAM_SEED, PROJECTS_SEED, SEED_TASKS });
+Object.assign(window, { STATUSES, PRIORITIES, IMPACTS, riskLevel, TEAM_SEED, PROJECTS_SEED, OBJECTIVES_SEED, SEED_TASKS });

@@ -13,6 +13,31 @@ const TaskModal = ({ task, onClose, onSave, onDelete }) => {
     update({ assignees: has ? draft.assignees.filter(a => a !== id) : [...draft.assignees, id] });
   };
 
+  // Validação: retorna lista de erros bloqueantes (title, datas) e avisos auto-corrigíveis.
+  const validate = (d) => {
+    const errors = [];
+    if (!d.title.trim()) errors.push('Informe um título para a tarefa.');
+    if (!d.start || !d.due) errors.push('Preencha datas de início e prazo.');
+    else if (d.due < d.start) errors.push('O prazo não pode ser anterior ao início.');
+    if (!d.assignees || d.assignees.length === 0) errors.push('Atribua ao menos um responsável.');
+    return errors;
+  };
+
+  const handleSave = () => {
+    const errors = validate(draft);
+    if (errors.length > 0) {
+      (window.toast || (() => {}))({ msg: errors[0], kind: 'error', ttl: 3500 });
+      return;
+    }
+    // Auto-coerção: finalizado implica 100%; cancelado preserva progresso.
+    let out = draft;
+    if (out.status === 'done' && out.progress !== 100) out = { ...out, progress: 100 };
+    if (out.progress === 100 && out.status !== 'done' && out.status !== 'cancel') out = { ...out, status: 'done' };
+    onSave(out);
+  };
+
+  const errorsNow = validate(draft);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -20,6 +45,11 @@ const TaskModal = ({ task, onClose, onSave, onDelete }) => {
           <div style={{flex:1}}>
             <div className="code">
               {draft.id} · {PROJECTS.find(p => p.id === draft.project)?.label || '—'}
+              {(() => {
+                const proj = PROJECTS.find(p => p.id === draft.project);
+                const obj = proj && (window.OBJECTIVES || []).find(o => o.id === proj.objective);
+                return obj ? <span style={{marginLeft:8, color:'var(--accent-ink)'}}>↳ {obj.label}</span> : null;
+              })()}
               {draft.recurrent && <span style={{marginLeft:8}}><Icon name="repeat" size={11}/> {
                 draft.recurrent === 'weekly' ? 'semanal' :
                 draft.recurrent === 'monthly' ? 'mensal' :
@@ -39,11 +69,21 @@ const TaskModal = ({ task, onClose, onSave, onDelete }) => {
         <div className="modal-body">
           <div className="modal-main">
             <div className="field">
-              <label className="field-label">Descrição</label>
+              <label className="field-label">Escopo técnico-regulatório</label>
               <textarea
                 value={draft.desc || ''}
                 onChange={e => update({desc: e.target.value})}
-                placeholder="Contexto, critérios de aceite, referências…"
+                placeholder="Descrição exata do problema. Use terminologia dos manuais (ex.: subestação, linha de transmissão, alimentador)."
+              />
+            </div>
+
+            <div className="field">
+              <label className="field-label">Fundamentação (norma / base de conhecimento)</label>
+              <input
+                type="text"
+                value={draft.fundamentacao || ''}
+                onChange={e => update({fundamentacao: e.target.value})}
+                placeholder="ex.: ANEEL PRODIST Módulo 8 · NBR 5422 · PR-GES-001"
               />
             </div>
 
@@ -156,7 +196,7 @@ const TaskModal = ({ task, onClose, onSave, onDelete }) => {
             </div>
 
             <div className="side-section">
-              <div className="side-title">Prioridade</div>
+              <div className="side-title">Prioridade (urgência)</div>
               <div className="pri-select">
                 {PRIORITIES.map(p => (
                   <div
@@ -171,6 +211,34 @@ const TaskModal = ({ task, onClose, onSave, onDelete }) => {
             </div>
 
             <div className="side-section">
+              <div className="side-title">Impacto no negócio</div>
+              <div className="pri-select">
+                {IMPACTS.map(p => {
+                  const mapPri = { alto: 'alta', medio: 'media', baixo: 'baixa' }[p.id];
+                  return (
+                    <div
+                      key={p.id}
+                      className={'pri-opt ' + mapPri + ((draft.impact || 'medio') === p.id ? ' on' : '')}
+                      onClick={() => update({impact: p.id})}
+                    >
+                      {p.label}
+                    </div>
+                  );
+                })}
+              </div>
+              {(() => {
+                const r = riskLevel(draft.impact || 'medio', draft.priority);
+                const bg = { critico: 'var(--p-alta)', alto: 'var(--p-alta)', medio: 'var(--p-media)', baixo: 'var(--p-baixa)' }[r.id];
+                return (
+                  <div style={{marginTop:8, padding:'6px 10px', borderRadius:6, background:'var(--bg-2)', border:'1px solid var(--line)', fontSize:11.5, color:'var(--ink-2)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                    <span style={{textTransform:'uppercase', letterSpacing:'0.05em', fontSize:10, color:'var(--ink-3)'}}>Risco</span>
+                    <span style={{fontWeight:600, color:bg}}>{r.label}</span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="side-section">
               <div className="side-title">Responsáveis</div>
               <div className="assignee-picker">
                 {TEAM.map(p => (
@@ -178,12 +246,29 @@ const TaskModal = ({ task, onClose, onSave, onDelete }) => {
                     key={p.id}
                     className={'assignee-opt' + (draft.assignees.includes(p.id) ? ' on' : '')}
                     onClick={() => toggleAssignee(p.id)}
+                    title={p.role ? `${p.role}${p.escalation ? ' · escalonamento nível ' + p.escalation : ''}` : ''}
                   >
                     <Avatar id={p.id} size={22}/>
                     {p.name}
                   </div>
                 ))}
               </div>
+              {draft.assignees.length > 0 && (() => {
+                const chain = draft.assignees
+                  .map(id => TEAM.find(t => t.id === id))
+                  .filter(Boolean)
+                  .sort((a, b) => (a.escalation ?? 9) - (b.escalation ?? 9));
+                return (
+                  <div style={{marginTop:8, padding:'8px 10px', background:'var(--bg-2)', borderRadius:6, border:'1px dashed var(--line)', fontSize:11.5, color:'var(--ink-3)', lineHeight:1.5}}>
+                    <div style={{fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--ink-3)', fontWeight:600, marginBottom:4}}>Escalonamento</div>
+                    {chain.map((t, i) => (
+                      <div key={t.id} style={{color:'var(--ink-2)'}}>
+                        {i === 0 ? '▸ ' : '  ↑ '}<strong>{t.name}</strong> — {t.role || 'sem papel'}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="side-section">
@@ -231,8 +316,14 @@ const TaskModal = ({ task, onClose, onSave, onDelete }) => {
             <Icon name="trash" size={14}/> Excluir
           </button>
           <span className="spacer"/>
+          {errorsNow.length > 0 && (
+            <span style={{fontSize:11.5, color:'var(--p-alta)', fontWeight:500, marginRight:8}}>
+              {errorsNow[0]}
+            </span>
+          )}
           <button className="btn" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary" onClick={() => onSave(draft)}>
+          <button className="btn btn-primary" onClick={handleSave} disabled={errorsNow.length > 0}
+            style={errorsNow.length > 0 ? {opacity:0.5, cursor:'not-allowed'} : null}>
             <Icon name="check" size={14}/> Salvar
           </button>
         </div>
