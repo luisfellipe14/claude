@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGRE-AT · Ativos + Planejamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ativos/styles.css">
+<link rel="stylesheet" href="app.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1117">
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- Dados do SIGRE (ativos) -->
+<script src="ativos/data.js"></script>
+
+<!-- Ponte OBRAS ↔ PROJECTS — precisa rodar depois de data.js -->
+<script src="bridge.js"></script>
+
+<!-- Páginas SIGRE (JSX via Babel) -->
+<script type="text/babel" src="ativos/pages1.jsx"></script>
+<script type="text/babel" src="ativos/pages2.jsx"></script>
+<script type="text/babel" src="ativos/pages3.jsx"></script>
+
+<!-- Shell unificado (Topbar/Sidebar/CommandPalette) -->
+<script type="text/babel" src="shell.jsx"></script>
+
+<!-- App root -->
+<script type="text/babel" src="app.jsx"></script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
