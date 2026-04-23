@@ -122,6 +122,48 @@ const RiskHeatmap = React.memo(({ matrix, onSelect }) => {
   );
 });
 
+const MIGRATION_KEY = 'planner_at_migrated';
+
+const MigrationBanner = ({ onExport }) => {
+  const isCustomDomain = window.location.hostname === 'luisfellipe.com';
+  const dismissed = localStorage.getItem(MIGRATION_KEY) === '1';
+  const [visible, setVisible] = useS(isCustomDomain && !dismissed);
+
+  const dismiss = () => {
+    localStorage.setItem(MIGRATION_KEY, '1');
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div style={{
+      background: 'oklch(95% 0.06 45)', borderBottom: '1px solid oklch(85% 0.10 45)',
+      padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13,
+      color: 'oklch(30% 0.10 45)',
+    }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span style={{flex:1}}>
+        <strong>Domínio customizado ativado.</strong> Seus dados do localStorage não migram automaticamente do antigo URL do GitHub Pages. Se você tinha tarefas salvas, use <strong>Armazenamento → Exportar JSON</strong> no domínio antigo e importe aqui.
+      </span>
+      <button onClick={() => { onExport(); dismiss(); }} style={{
+        background: 'oklch(55% 0.15 45)', color: '#fff', border: 'none', borderRadius: 6,
+        padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+      }}>
+        Abrir backup
+      </button>
+      <button onClick={dismiss} style={{
+        background: 'transparent', border: 'none', cursor: 'pointer', color: 'oklch(45% 0.08 45)',
+        padding: '4px', lineHeight: 1,
+      }} title="Fechar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  );
+};
+
 const App = () => {
   const [tasks, setTasks, history] = useHistory(loadTasks);
   const [view, setView] = useS(() => localStorage.getItem('planner_at_view') || 'kanban');
@@ -329,6 +371,7 @@ const App = () => {
 
   return (
     <div className="app">
+      <MigrationBanner onExport={() => setShowSync(true)} />
       <div className="topbar">
         <div className="brand">
           <BrandMark />
