@@ -602,7 +602,19 @@ const App = () => {
 
       }
       {showInteg && <IntegrationModal tasks={tasks} onClose={() => setShowInteg(false)}/>}
-      {showSync && <SyncPanel tasks={tasks} onImport={(imported) => setTasks(imported.map(migrate))} onClose={() => setShowSync(false)}/>}
+      {showSync && <SyncPanel
+        tasks={tasks}
+        onImport={(imported) => setTasks(imported.map(migrate))}
+        onAppend={(imported) => {
+          const byId = new Map(tasks.map(t => [t.id, t]));
+          imported.forEach(t => byId.set(t.id, migrate({ ...byId.get(t.id), ...t })));
+          const merged = Array.from(byId.values());
+          setTasks(merged);
+          const added = imported.filter(t => !tasks.some(x => x.id === t.id)).length;
+          const updated = imported.length - added;
+          audit({ action: 'import', taskId: 'sharepoint-os', taskTitle: 'Gestão de OS (SharePoint)', detail: `${added} nova(s), ${updated} atualizada(s)` });
+        }}
+        onClose={() => setShowSync(false)}/>}
       {showSettings && <SettingsPanel tasks={tasks} onTasksChange={setTasks} onDataChange={() => forceTick(x=>x+1)} onClose={() => setShowSettings(false)}/>}
       {showAudit && <AuditPanel onClose={() => setShowAudit(false)} />}
       {showHotkeys && <HotkeysHelp onClose={() => setShowHotkeys(false)} />}
