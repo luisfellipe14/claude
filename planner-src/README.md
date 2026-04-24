@@ -31,13 +31,9 @@ Este repositório já possui workflow para publicar automaticamente a pasta `pla
 1. Faça push para a branch padrão do repositório (`main` ou `master`).
 2. No GitHub, vá em **Settings → Pages** e em **Build and deployment** selecione **Source: GitHub Actions**.
 3. Aguarde o workflow de deploy finalizar (aba **Actions**).
-4. A URL final normalmente fica:
-   - `https://<seu-usuario>.github.io/<seu-repo>/`
-   - Ou no domínio customizado configurado via CNAME: **https://luisfellipe.com**
+4. A URL final fica em `https://<seu-usuario>.github.io/<seu-repo>/`.
 
 > Observação: como o build publica `planner-src` como raiz do site, o `index.html` já abre direto no link acima.
-
-> **Migração de dados:** o `localStorage` é isolado por origem. Ao trocar do domínio `github.io` para o domínio customizado, use **Armazenamento → Exportar JSON** no endereço antigo e **Importar** no novo.
 
 ## Estrutura
 
